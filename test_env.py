@@ -32,5 +32,5 @@ if __name__ == '__main__':
         observation, reward, done, info = env.step(env.action_space.sample())
         logging.info("Iteration %d \n"%i)
         logging.info(env.get_state_desc()['misc']["mass_center_pos"])
-        break
+        
     logging.info('================End================\n')
