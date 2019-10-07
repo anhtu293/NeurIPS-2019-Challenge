@@ -11,7 +11,7 @@ import tensorflow.keras.backend as K
 import random
 import replay_buffer
 import actor_critic
-
+import logging
 
 TAU = 0.125
 LR = 0.001
@@ -23,7 +23,14 @@ BATCH_SIZE = 32
 
 
 if __name__ == '__main__':
+    logging.basicConfig(filename='test.log',level=logging.DEBUG)
+    logging.info('================Start================\n')
+
     env = L2M2019Env(visualize=True)
     observation = env.reset()
-    print(env.action_space.shape)
-    print(env.observation_space.shape)
+    for i in range(200):
+        observation, reward, done, info = env.step(env.action_space.sample())
+        logging.info("Iteration %d \n"%i)
+        logging.info(env.get_state_desc()['misc']["mass_center_pos"])
+        break
+    logging.info('================End================\n')
