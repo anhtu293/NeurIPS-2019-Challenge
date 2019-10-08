@@ -1,9 +1,15 @@
+import numpy as np
+from collections import deque
+import random
+
+#BUFFER_SIZE = 1000000
+
 class Replay_Buffer:
-    def __init__(self):
+    def __init__(self, buffer_size, batch_size):
         self.buffer = deque()
-        self.buffer_size = BUFFER_SIZE
+        self.buffer_size = buffer_size
         self.count = 0
-        self.batch_size = BATCH_SIZE
+        self.batch_size = batch_size
     def memorize(self, transition):
         if self.count == self.buffer_size:
             self.buffer.popleft()

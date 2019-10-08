@@ -28,9 +28,11 @@ if __name__ == '__main__':
 
     env = L2M2019Env(visualize=True)
     observation = env.reset()
+    vect = []
     for i in range(200):
         observation, reward, done, info = env.step(env.action_space.sample())
         logging.info("Iteration %d \n"%i)
         logging.info(env.get_state_desc()['misc']["mass_center_pos"])
-        
+        vect.append(env.get_state_desc()['misc']["mass_center_pos"])
+    
     logging.info('================End================\n')
