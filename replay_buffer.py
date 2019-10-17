@@ -1,6 +1,7 @@
 import numpy as np
 from collections import deque
 import random
+import pickle
 
 #BUFFER_SIZE = 1000000
 
@@ -30,3 +31,11 @@ class Replay_Buffer:
         batch_info = np.array([x[4] for x in batch])
 
         return batch_state, batch_action, batch_reward, batch_nextstate, batch_info
+    
+    def save(self, name = "log/memory_buffer.pickle"):
+        with open(name, 'wb') as f:
+            pickle.dump(self.buffer, f)
+    
+    def load(self, name = "log/memory_buffer.pickle"):
+        with open(name, 'rb') as f:
+            self.buffer = pickle.load(f)
