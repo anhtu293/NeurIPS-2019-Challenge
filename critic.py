@@ -16,7 +16,7 @@
 
 from osim.env import L2M2019Env
 import numpy as np
-from tensorflow.keras.layers import Dense, Input, Add
+from tensorflow.keras.layers import Dense, Input, Add, concatenante
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, Model
@@ -54,7 +54,7 @@ class Critic:
         action_input = Input(shape = (None,self.env.action_space.shape[0]))
         action_1 = Dense(100, activation = 'relu')(action_input)
 
-        merge = Add()([state_2, action_1])
+        merge = concatenante([state_2, action_1])
         merge_1 = Dense(50, activation = 'relu')(merge)
         output = Dense(1, activation = 'linear')(merge_1)
 
