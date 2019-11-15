@@ -16,7 +16,7 @@
 
 from osim.env import L2M2019Env
 import numpy as np
-from tensorflow.keras.layers import Dense, Input, Add, concatenante
+from tensorflow.keras.layers import Dense, Input, Add, concatenate
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, Model
@@ -36,6 +36,7 @@ class Critic:
         self.tau = TAU
         self.discount = discount
         self.batch_size = batch_size
+        print("Summary critic network")
         self.critic_model, self.action, self.state = self._build_critic_model()
         self.critic_target, self.target_action, self.target_state = self._build_critic_model()
 
@@ -47,14 +48,14 @@ class Critic:
         self.sess.run(init)
     
     def _build_critic_model(self):
-        state_input = Input(shape = (None,self.env.observation_space.shape[0]))
+        state_input = Input(shape = [None,self.env.observation_space.shape[0]])
         state_1 = Dense(200, activation = 'relu')(state_input)
         state_2 = Dense(100, activation = 'relu')(state_1)
 
-        action_input = Input(shape = (None,self.env.action_space.shape[0]))
+        action_input = Input(shape = (None, self.env.action_space.shape[0]))
         action_1 = Dense(100, activation = 'relu')(action_input)
 
-        merge = concatenante([state_2, action_1])
+        merge = concatenate([state_2, action_1])
         merge_1 = Dense(50, activation = 'relu')(merge)
         output = Dense(1, activation = 'linear')(merge_1)
 
@@ -90,7 +91,7 @@ class Critic:
         
         for i in range(len(batch_ns)):
             #new_state = [batch_ns[i]]
-            if not batch_info :
+            if not batch_info[i] :
                 batch_reward[i] += self.discount*target_predicts[i]
         
         history = self.critic_model.train_on_batch([batch_state, batch_action], batch_reward)

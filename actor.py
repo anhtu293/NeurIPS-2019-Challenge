@@ -43,7 +43,7 @@ class Actor:
         self.learning_rate = LR
         self.tau = TAU
         self.discount = discount
-
+        print("Summary actor network")
         self.actor_model, self.weights, self.state = self._build_actor_model()
         self.actor_target, self.target_weights, self.target_state = self._build_actor_model()
 
