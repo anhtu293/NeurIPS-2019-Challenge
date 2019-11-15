@@ -76,6 +76,7 @@ class Actor:
     def actor_train(self, grad, samples):
         batch_state, batch_action, batch_reward, batch_ns, batch_info = samples
         #predicted_action = self.actor_model.predict(batch_state)
+        print(grad)
         history = self.sess.run(self.actor_update, feed_dict= {
             self.action_gradient : grad,
             self.state : np.asarray(batch_state)

@@ -224,7 +224,7 @@ class Trainer():
         #save information to log
         name = "./log/data.txt"
         with open(name, 'a') as f:
-            f.write(self.num_episodes, model_name_prefix, self.noise, self.epsilon)
+            f.write(" ".join((self.num_episodes, model_name_prefix, self.noise, self.epsilon)))
         f.close()
         print("Log saved successfully! \n")
         #save memory buffer

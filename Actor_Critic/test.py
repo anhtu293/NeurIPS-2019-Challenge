@@ -111,7 +111,7 @@ class Trainer():
         for i_episode in range(self.model.batch_size):
             #reset env
             state = env.reset()
-            
+
             #noise decay
             self.noise *=  self.noise_decay
 
@@ -123,8 +123,8 @@ class Trainer():
             action_with_noise = np.zeros([1, self.model.env.action_space.shape[0]])
             
             for i_step in itertools.count():
-                state = [state]
-                action_original = self.model.Actor.actor_model.predict(np.asarray(state))
+                #state = state.reshape(1,3)
+                action_original = self.model.Actor.actor_model.predict(np.array([state]))
 
                 #action for training with noise
                 action_with_noise[0] = np.zeros([1, self.model.env.action_space.shape[0]])
@@ -138,10 +138,11 @@ class Trainer():
 
                 #execute action action_with_noise and observe reward r_t and s_t+1
                 next_state, reward, done, info = self.model.env.step(action_with_noise[0])
+
                 #reward = -reward
                 if done:
                         reward -= 20
-                self.model.memory_buffer.memorize([state, action_with_noise, reward, next_state, done])
+                self.model.memory_buffer.memorize([state, action_with_noise[0], reward, next_state, done])
 
                 if done:
                     break
@@ -170,7 +171,7 @@ class Trainer():
             
             #reset env
             state = env.reset()
-            
+
             #noise decay
             self.noise *=  self.noise_decay
 
@@ -182,8 +183,7 @@ class Trainer():
             action_with_noise = np.zeros([1, self.model.env.action_space.shape[0]])
             
             for i_step in itertools.count():
-                state = [state]
-                action_original = self.model.Actor.actor_model.predict(np.asarray(state))
+                action_original = self.model.Actor.actor_model.predict(np.asarray([state]))
 
                 #action for training with noise
                 action_with_noise[0] = np.zeros([1, self.model.env.action_space.shape[0]])
@@ -197,14 +197,12 @@ class Trainer():
 
                 #execute action action_with_noise and observe reward r_t and s_t+1
                 next_state, reward, done, info = self.model.env.step(action_with_noise[0])
-                reward = -reward
+
+                #reward = -reward
                 if done:
-                    if utils.direction(next_state) == self.direction:
-                        reward += 10
-                    else:
-                        reward -= 10
+                    reward -= 20
                 one_episode_score += reward
-                self.model.memory_buffer.memorize([state, action_with_noise, reward, next_state, done])
+                self.model.memory_buffer.memorize([state, action_with_noise[0], reward, next_state, done])
                 self.experience_replay()
 
                 if done:
@@ -232,12 +230,14 @@ class Trainer():
         
     def experience_replay(self):
         #hist_actor, hist_critic = self.model.train()
-        samples = self.model.memory_buffer.sample_batch() 
+        samples = self.model.memory_buffer.sample_batch()
         history_critic = self.model.Critic.critic_train(self.model.Actor.actor_target, samples)
+
         action_for_grad = self.model.Actor.actor_model.predict(samples[0])
         grad = self.model.Critic.gradients(samples[0], action_for_grad)
+
         history_actor = self.model.Actor.actor_train(grad, samples)
-        
+
         self.model.update_target()
         #write log
         name = "./log/training.txt"

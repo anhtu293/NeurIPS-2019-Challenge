@@ -29,7 +29,6 @@ class Replay_Buffer:
         batch_reward = np.array([x[2] for x in batch])
         batch_nextstate = np.array([x[3] for x in batch])
         batch_info = np.array([x[4] for x in batch])
-
         return batch_state, batch_action, batch_reward, batch_nextstate, batch_info
     
     def save(self, name = "log/memory_buffer.pickle"):
