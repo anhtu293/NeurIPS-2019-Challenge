@@ -63,13 +63,12 @@ class Actor_Critic():
     def update_target(self):
         self.Actor.actor_target_update()
         self.Critic.critic_target_update()
-    
-    #def train(self):
-        
+
     def save(self, prefixe):
         self.Actor.save(prefixe)
         self.Critic.save(prefixe)
         self.memory_buffer.save()
+
 
 class Trainer():
     def __init__(self, model, num_episodes, direction):
@@ -81,7 +80,21 @@ class Trainer():
         self.noise_decay = NOISE_DECAY
         self.epsilon = EPSILON
         self.epsilon_decay = EPSILON_DECAY
-    
+        self.count_exp_replay = 0
+        #reward summary for tensorboard
+        self.tf_reward = tf.placeholder(tf.float32, shape=None, name='reward_summary')
+        self.tf_reward_summary = tf.summary.scalar("Reward by episode", self.tf_reward)
+        #Loss of critic summary for tensorboard
+        self.tf_critic_loss = tf.placeholder(tf.float32, shape=None, name='critic_loss_summary')
+        self.tf_critic_summary = tf.summary.scalar("Critic loss", self.tf_critic_loss)
+        # Loss of actor summary for tensorboard
+        self.tf_actor_loss = tf.placeholder(tf.float32, shape=None, name='actor_loss_summary')
+        self.tf_actor_summary = tf.summary.scalar("Actor loss", self.tf_actor_loss)
+        #merge loss
+        self.loss = tf.summary.merge([self.tf_critic_summary, self.tf_actor_summary])
+        #writer
+        self.writer = tf.summary.FileWriter('./graphs', self.model.sess.graph)
+
     def tryLoadWeights(self):
         print("Load weights \n")
         try:
@@ -150,9 +163,8 @@ class Trainer():
                     state = next_state
 
     def DDPG(self, model_name_prefix):
-        
+        scores = []
         for i_episode in range(self.episode_start, self.num_episodes):
-            scores  = []
             one_episode_score = 0
             #write log of training
             name = "./log/training.txt"
@@ -161,6 +173,7 @@ class Trainer():
             f.close()
 
             if (i_episode + 1) % 100 == 0:
+                print(scores)
                 avg = np.mean(np.asarray(scores))
                 if (i_episode + 1) % 1000 == 0:
                     prefixe = "./checkpoints/"
@@ -199,14 +212,23 @@ class Trainer():
                 next_state, reward, done, info = self.model.env.step(action_with_noise[0])
 
                 #reward = -reward
+                """
                 if done:
                     reward -= 20
+                """
                 one_episode_score += reward
                 self.model.memory_buffer.memorize([state, action_with_noise[0], reward, next_state, done])
                 self.experience_replay()
 
                 if done:
+                    print("Episode {} ->>> Scores : {}".format(i_episode, one_episode_score))
                     scores.append(one_episode_score)
+                    #write reward for tensorboard
+                    summary = self.model.sess.run(self.tf_reward_summary, feed_dict = {
+                        self.tf_reward : one_episode_score
+                    })
+                    #add summary to writer
+                    self.writer.add_summary(summary, i_episode)
                     break
                 else:
                     state = next_state
@@ -229,22 +251,32 @@ class Trainer():
         print("Models saved successfully ! \n")
         
     def experience_replay(self):
-        #hist_actor, hist_critic = self.model.train()
+
         samples = self.model.memory_buffer.sample_batch()
         history_critic = self.model.Critic.critic_train(self.model.Actor.actor_target, samples)
 
         action_for_grad = self.model.Actor.actor_model.predict(samples[0])
         grad = self.model.Critic.gradients(samples[0], action_for_grad)
-
         history_actor = self.model.Actor.actor_train(grad, samples)
 
         self.model.update_target()
+
         #write log
         name = "./log/training.txt"
         with open(name, 'a') as f:
-            f.write("History of actor network : {} \n".format(history_actor))
-            f.write("History of critic network : {} \n".format(history_critic))
+            f.write("Loss of actor network : {} \n".format(history_actor))
+            f.write("Loss of critic network : {} \n".format(history_critic))
         f.close()
+
+        #write loss for tensorboard
+        summary = self.model.sess.run(self.loss, feed_dict={
+            self.tf_critic_loss : history_critic,
+            self.tf_actor_loss : history_actor
+        })
+
+        #add summary to writer
+        self.writer.add_summary(summary, self.count_exp_replay)
+        self.count_exp_replay += 1
 
         return([history_actor, history_critic])
         
@@ -252,7 +284,7 @@ def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--direction", default = "forward", help = "direction of falling")
     parser.add_argument("--out", default = "front", help = "prefix of output file")
-    parser.add_argument("--episodes", default = 10000, help = "number of episodes for training")
+    parser.add_argument("--episodes", default = 500, help = "number of episodes for training")
     args = parser.parse_args()
     return args
 

@@ -76,12 +76,16 @@ class Actor:
     def actor_train(self, grad, samples):
         batch_state, batch_action, batch_reward, batch_ns, batch_info = samples
         #predicted_action = self.actor_model.predict(batch_state)
-        print(grad)
         history = self.sess.run(self.actor_update, feed_dict= {
             self.action_gradient : grad,
             self.state : np.asarray(batch_state)
         })
-        return(history)
+
+        predicted_actions = self.actor_model.predict(batch_state)
+        loss_tf = tf.reduce_mean(tf.squared_difference(batch_action, predicted_actions))
+        loss = self.sess.run(loss_tf)
+
+        return(loss)
     
     def save(self, prefixe):
         name_file = prefixe + "_actor_target.h5"

@@ -153,9 +153,8 @@ class Trainer():
                     state = next_state
 
     def DDPG(self, model_name_prefix):
-        
+        scores = []
         for i_episode in range(self.episode_start, self.num_episodes):
-            scores  = []
             one_episode_score = 0
             #write log of training
             name = "./log/training.txt"

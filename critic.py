@@ -66,10 +66,11 @@ class Critic:
         return model, action_input, state_input
     
     def gradients(self, states, actions):
-        self.sess.run(self.critic_gradients, feed_dict = {
+
+        return self.sess.run(self.critic_gradients, feed_dict = {
             self.state : states,
             self.action : actions
-        })
+        })[0]
 
     def critic_target_update(self):
         critic_weights = self.critic_model.get_weights()
@@ -84,14 +85,17 @@ class Critic:
         batch_state = np.array(batch_state)
         batch_reward = np.array(batch_reward)
         batch_info = np.array(batch_info)
+
         target_actions = actor_target.predict(batch_ns)
         target_predicts = self.critic_target.predict([batch_ns, target_actions])
         target_predicts.reshape([1, target_predicts.shape[0]])[0]
+
         for i in range(len(batch_ns)):
             #new_state = [batch_ns[i]]
             if not batch_info[i] :
                 batch_reward[i] += self.discount*target_predicts[i]
         history = self.critic_model.train_on_batch([batch_state, batch_action], batch_reward)
+        
         return(history)
 
     def save(self, prefixe):
