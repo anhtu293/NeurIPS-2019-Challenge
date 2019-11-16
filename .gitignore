@@ -58,3 +58,5 @@ docs/_build/
 # PyBuilder
 target/
 
+Actor_Critic/log/training.txt
+Actor_Critic/graphs/events.out.tfevents.1573908988.anhtu293
