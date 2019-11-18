@@ -16,7 +16,7 @@
 
 from osim.env import L2M2019Env
 import numpy as np
-from tensorflow.keras.layers import Dense, Input, Add, concatenante
+from tensorflow.keras.layers import Dense, Input, Add, concatenate
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, Model
@@ -29,32 +29,33 @@ import replay_buffer
 
 
 class Critic:
-    def __init__(self, env, sess, LR = 0.001, TAU = 0.125, discount = 0.99, batch_size = 32):
+    def __init__(self, env, sess, LR = 0.0001, TAU = 0.125, discount = 0.99, batch_size = 32):
         self.env = env
         self.sess = sess
         self.learning_rate = LR
         self.tau = TAU
         self.discount = discount
         self.batch_size = batch_size
+        print("Summary critic network")
         self.critic_model, self.action, self.state = self._build_critic_model()
         self.critic_target, self.target_action, self.target_state = self._build_critic_model()
 
         self.critic_model_output = self.critic_model.output
-        self.critic_gradients_output = tf.placeholder(tf.float32, [None, 1])
-        self.critic_gradients = tf.gradients(self.critic_gradients_output, self.action)
+        #self.critic_gradients_output = tf.placeholder(tf.float32, [None, 1])
+        self.critic_gradients = tf.gradients(self.critic_model_output, self.action)
         
         init = tf.global_variables_initializer()
         self.sess.run(init)
     
     def _build_critic_model(self):
-        state_input = Input(shape = (None,self.env.observation_space.shape[0]))
+        state_input = Input(shape = [self.env.observation_space.shape[0]])
         state_1 = Dense(200, activation = 'relu')(state_input)
         state_2 = Dense(100, activation = 'relu')(state_1)
 
-        action_input = Input(shape = (None,self.env.action_space.shape[0]))
+        action_input = Input(shape = (self.env.action_space.shape[0]))
         action_1 = Dense(100, activation = 'relu')(action_input)
 
-        merge = concatenante([state_2, action_1])
+        merge = concatenate([state_2, action_1])
         merge_1 = Dense(50, activation = 'relu')(merge)
         output = Dense(1, activation = 'linear')(merge_1)
 
@@ -65,10 +66,11 @@ class Critic:
         return model, action_input, state_input
     
     def gradients(self, states, actions):
-        self.sess.run(self.gradients, feed = {
+
+        return self.sess.run(self.critic_gradients, feed_dict = {
             self.state : states,
             self.action : actions
-        })
+        })[0]
 
     def critic_target_update(self):
         critic_weights = self.critic_model.get_weights()
@@ -81,19 +83,19 @@ class Critic:
         batch_state, batch_action, batch_reward, batch_ns, batch_info = samples
         batch_ns = np.array(batch_ns)
         batch_state = np.array(batch_state)
-        batch_reward = np.array(batch_state)
+        batch_reward = np.array(batch_reward)
         batch_info = np.array(batch_info)
+
         target_actions = actor_target.predict(batch_ns)
-        
         target_predicts = self.critic_target.predict([batch_ns, target_actions])
-        target_predicts.reshape([1, target_predicts.shape[0]])[0]
-        
+        target_predicts = target_predicts.reshape([1, target_predicts.shape[0]])[0]
+
         for i in range(len(batch_ns)):
             #new_state = [batch_ns[i]]
-            if not batch_info :
+            if not batch_info[i] :
                 batch_reward[i] += self.discount*target_predicts[i]
-        
         history = self.critic_model.train_on_batch([batch_state, batch_action], batch_reward)
+        
         return(history)
 
     def save(self, prefixe):
