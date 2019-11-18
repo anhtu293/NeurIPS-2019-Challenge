@@ -78,8 +78,13 @@ class Actor:
         #predicted_action = self.actor_model.predict(batch_state)
         history = self.sess.run(self.actor_update, feed_dict= {
             self.action_gradient : grad,
-            self.state : np.asarray(batch_state)
+            self.state : batch_state
         })
+
+        #predicted_actions = self.actor_model.predict(batch_state)
+        #loss_tf = tf.reduce_mean(tf.squared_difference(batch_action, predicted_actions))
+        #loss = self.sess.run(loss_tf)
+
         return(history)
     
     def save(self, prefixe):
