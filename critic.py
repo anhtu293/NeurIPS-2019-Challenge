@@ -29,7 +29,7 @@ import replay_buffer
 
 
 class Critic:
-    def __init__(self, env, sess, LR = 0.001, TAU = 0.125, discount = 0.99, batch_size = 32):
+    def __init__(self, env, sess, LR = 0.0001, TAU = 0.125, discount = 0.99, batch_size = 32):
         self.env = env
         self.sess = sess
         self.learning_rate = LR
@@ -88,7 +88,7 @@ class Critic:
 
         target_actions = actor_target.predict(batch_ns)
         target_predicts = self.critic_target.predict([batch_ns, target_actions])
-        target_predicts.reshape([1, target_predicts.shape[0]])[0]
+        target_predicts = target_predicts.reshape([1, target_predicts.shape[0]])[0]
 
         for i in range(len(batch_ns)):
             #new_state = [batch_ns[i]]

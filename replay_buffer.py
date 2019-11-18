@@ -11,6 +11,7 @@ class Replay_Buffer:
         self.buffer_size = buffer_size
         self.count = 0
         self.batch_size = batch_size
+
     def memorize(self, transition):
         if self.count == self.buffer_size:
             self.buffer.popleft()
@@ -18,11 +19,13 @@ class Replay_Buffer:
         else:
             self.buffer.append(transition)
             self.count += 1
+
     def size(self):
         return self.count
+
     def sample_batch(self):
         batch = []
-        batch = random.sample(self.buffer, min([self.count, self.batch_size]))
+        batch = random.sample(self.buffer, self.batch_size)
 
         batch_state = np.array([x[0] for x in batch])
         batch_action = np.array([x[1] for x in batch])
