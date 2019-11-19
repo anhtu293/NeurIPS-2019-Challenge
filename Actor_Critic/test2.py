@@ -157,30 +157,7 @@ class Trainer():
             return (1)
 
     def play_to_init_buffer(self):
-        """
-        for i_episode in range(1):
-            # reset env
-            state = env.reset()
 
-            action_with_noise = np.zeros([1, self.model.env.action_space.shape[0]])
-
-            for i_step in itertools.count():
-                # state = state.reshape(1,3)
-                action_original = self.model.env.action_space.sample()
-                action_with_noise = action_original
-
-                # execute action action_with_noise and observe reward r_t and s_t+1
-                state, reward, done, _ = self.model.env.step(action_with_noise)
-
-                # reward = -reward
-
-                self.model.memory_buffer.add(action_with_noise, reward, state, done)
-
-                if done:
-                    break
-                #else:
-                #    state = next_state
-        """
         self.env.reset()
         for random_step in range(1, 50000 + 1):
             self.env.render()
@@ -215,41 +192,7 @@ class Trainer():
 
                 one_episode_score += reward
 
-                #self.experience_replay()
-                batch_state, batch_action, batch_reward, batch_next_state, batch_done = self.model.memory_buffer.getMinibatch()
-
-                future_action = self.sess.run(self.model.Actor_target.output, feed_dict={
-                    self.model.states_ph: batch_next_state
-                })
-                future_Q = self.sess.run(self.model.Critic_target.output, feed_dict={
-                    self.model.states_ph: batch_next_state,
-                    self.model.actions_ph: future_action
-                })[:, 0]
-
-                future_Q[batch_done] = 0
-                targets = batch_reward + (future_Q * DISCOUNT)
-                # train Critic
-                self.sess.run(self.critic_train_ops, feed_dict={
-                    self.model.states_ph: batch_state,
-                    self.model.actions_ph: batch_action,
-                    self.target_Q_ph: np.expand_dims(targets, 1)
-                })
-
-                # train Actor
-                actor_actions = self.sess.run(self.model.Actor.output, feed_dict={
-                    self.model.states_ph: batch_state
-                })
-                action_grads = self.sess.run(self.model.Critic.action_grads, feed_dict={
-                    self.model.states_ph: batch_state,
-                    self.model.actions_ph: actor_actions
-                })
-                self.sess.run(self.actor_train_ops, feed_dict={
-                    self.model.states_ph: batch_state,
-                    self.actions_grads_ph: action_grads[0]
-                })
-                # update target
-                self.sess.run(self.update_critic_target)
-                self.sess.run(self.update_actor_target)
+                self.experience_replay()
 
                 if done or i_step == 50000:
                     end = time.time()
