@@ -2,7 +2,7 @@ import numpy as np
 from collections import deque
 import random
 import pickle
-
+import gym
 #BUFFER_SIZE = 1000000
 
 class Replay_Buffer:
@@ -41,3 +41,14 @@ class Replay_Buffer:
     def load(self, name = "log/memory_buffer.pickle"):
         with open(name, 'rb') as f:
             self.buffer = pickle.load(f)
+
+if __name__== "__main__":
+    env = gym.make("Pendulum-v0")
+    buffer = Replay_Buffer(1000, 3)
+    for i in range(10):
+        state = env.reset()
+        action = env.action_space.sample()
+        next_state, reward, done, _ = env.step(action)
+        buffer.memorize([state, action, reward, next_state, done])
+    print(buffer.sample_batch())
+    print(buffer.sample_batch())

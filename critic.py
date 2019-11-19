@@ -27,6 +27,79 @@ import tensorflow.keras.backend as K
 import random
 import replay_buffer
 
+def nth_root(num, n):
+    return(n**(1/num))
+
+class CriticNetwork:
+    def __init__(self, env, states, actions, LR = 0.0001, TAU = 0.125, discount = 0.99, batch_size = 32,
+                 scope = "critic", is_training=False):
+        self.env = env
+        self.env = env
+        self.learning_rate = LR
+        self.tau = TAU
+        self.discount = discount
+        self.discount_decay = 0.99
+        self.batch_size = batch_size
+        self.scope = scope
+        self.is_training = is_training
+
+        self.states = states
+        self.actions = actions
+        with tf.variable_scope(self.scope):
+            self.input_state = tf.layers.batch_normalization(self.states, training=self.is_training)
+            with tf.variable_scope("dense1"):
+                self.dense1_mlp = tf.layers.dense(self.input_state, 400,
+                                                  kernel_initializer=tf.random_uniform_initializer(
+                                                      (-1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0]))),
+                                                      1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0]))),
+                                                  bias_initializer=tf.random_uniform_initializer(
+                                                      (-1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0]))),
+                                                      1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0])))
+                                                  )
+                self.dense1_batchnorm = tf.layers.batch_normalization(self.dense1_mlp, training=self.is_training)
+                self.dense1 = tf.nn.relu(self.dense1_batchnorm)
+            with tf.variable_scope("dense2"):
+                self.dense2a = tf.layers.dense(self.dense1, 300,
+                                           kernel_initializer=tf.random_uniform_initializer(
+                                               (-1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0]))),
+                                               1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0]))),
+                                           bias_initializer=tf.random_uniform_initializer(
+                                               (-1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0]))),
+                                               1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0])))
+                                               )
+                self.dense2b = tf.layers.dense(self.actions, 300,
+                                               kernel_initializer=tf.random_uniform_initializer(
+                                                   (-1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0]))),
+                                                   1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0]))),
+                                               bias_initializer=tf.random_uniform_initializer(
+                                                   (-1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0]))),
+                                                   1 / tf.sqrt(tf.to_float(400 + self.env.action_space.shape[0])))
+                                               )
+                self.dense2 = tf.nn.relu(self.dense2a + self.dense2b)
+            with tf.variable_scope("output"):
+                self.output = tf.layers.dense(self.dense2, 1,
+                                              kernel_initializer=tf.random_uniform_initializer(-1 * 0.003, 0.003),
+                                              bias_initializer=tf.random_uniform_initializer(-0.003, 0.003))
+
+            self.network_params = tf.trainable_variables(scope = self.scope)
+
+            self.action_grads = tf.gradients(self.output, self.actions)
+
+    def train_step(self, target_Q):
+        with tf.variable_scope(self.scope):
+            with tf.variable_scope('train'):
+                l2_lambda = 0
+                self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
+                self.loss = tf.losses.mean_squared_error(target_Q, self.output)
+                self.l2_reg_loss = tf.add_n(
+                    [tf.nn.l2_loss(v) for v in self.network_params if 'kernel' in v.name]) * l2_lambda
+                self.total_loss = self.loss + self.l2_reg_loss
+
+                update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, self.scope)
+                with tf.control_dependencies(update_ops):
+                    train_step = self.optimizer.minimize(self.total_loss, var_list=self.network_params)
+
+                return train_step
 
 class Critic:
     def __init__(self, env, sess, LR = 0.0001, TAU = 0.125, discount = 0.99, batch_size = 32):
@@ -35,17 +108,16 @@ class Critic:
         self.learning_rate = LR
         self.tau = TAU
         self.discount = discount
+        self.discount_decay = 0.99
         self.batch_size = batch_size
         print("Summary critic network")
-        self.critic_model, self.action, self.state = self._build_critic_model()
-        self.critic_target, self.target_action, self.target_state = self._build_critic_model()
+        self.critic_model, self.action, self.state, self.output = self._build_critic_model()
+        self.critic_target, self.target_action, self.target_state, self.target_output = self._build_critic_model()
 
-        self.critic_model_output = self.critic_model.output
-        #self.critic_gradients_output = tf.placeholder(tf.float32, [None, 1])
-        self.critic_gradients = tf.gradients(self.critic_model_output, self.action)
-        
-        init = tf.global_variables_initializer()
-        self.sess.run(init)
+        #self.critic_model_output = self.critic_model.outputs
+        self.critic_gradients = tf.gradients(self.output, self.action)
+
+        self.sess.run(tf.global_variables_initializer())
     
     def _build_critic_model(self):
         state_input = Input(shape = [self.env.observation_space.shape[0]])
@@ -55,7 +127,7 @@ class Critic:
         action_input = Input(shape = (self.env.action_space.shape[0]))
         action_1 = Dense(100, activation = 'relu')(action_input)
 
-        merge = concatenate([state_2, action_1])
+        merge = Add()([state_2, action_1])
         merge_1 = Dense(50, activation = 'relu')(merge)
         output = Dense(1, activation = 'linear')(merge_1)
 
@@ -63,7 +135,7 @@ class Critic:
         model.compile(optimizer = Adam(self.learning_rate), loss = 'mse')
         model.summary()
 
-        return model, action_input, state_input
+        return model, action_input, state_input, output
     
     def gradients(self, states, actions):
 
@@ -86,17 +158,17 @@ class Critic:
         batch_reward = np.array(batch_reward)
         batch_info = np.array(batch_info)
 
-        target_actions = actor_target.predict(batch_ns)
-        target_predicts = self.critic_target.predict([batch_ns, target_actions])
-        target_predicts = target_predicts.reshape([1, target_predicts.shape[0]])[0]
+        self.discount *= self.discount_decay
 
+        next_actions = actor_target.predict(batch_ns)
+        target_Q = self.critic_target.predict([batch_ns, next_actions])
+        target_Q = target_Q.reshape([1, target_Q.shape[0]])[0]
         for i in range(len(batch_ns)):
-            #new_state = [batch_ns[i]]
             if not batch_info[i] :
-                batch_reward[i] += self.discount*target_predicts[i]
-        history = self.critic_model.train_on_batch([batch_state, batch_action], batch_reward)
-        
-        return(history)
+                batch_reward[i] += self.discount*target_Q[i]
+
+        history = self.critic_model.fit([batch_state, batch_action], batch_reward, batch_size = 32, verbose = 0)
+        return(history.history["loss"][0])
 
     def save(self, prefixe):
         name_file = prefixe + "_critic_target.h5"

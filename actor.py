@@ -34,59 +34,125 @@ import tensorflow.keras.backend as K
 import random
 import replay_buffer
 
+class ActorNetwork:
+    def __init__(self, env, states, LR = 0.0001, TAU = 0.125, discount = 0.99, batch_size = 32, scope = "actor",
+                 is_training=False):
+        self.env = env
+        self.leraning_rate = LR
+        self.TAU = TAU
+        self.discount = discount
+        self.scope = scope
+        self.action_sup = 2
+        self.action_inf = -2
+        self.batch_size = batch_size
+        self.is_training = is_training
+
+        #build network
+        self.states = states
+        with tf.variable_scope(self.scope):
+            self.input_state = tf.layers.batch_normalization(self.states, momentum=0.9,fused=True,
+                                                             training=self.is_training)
+            with tf.variable_scope('dense1'):
+                self.dense1_mlp = tf.layers.dense(self.input_state, 400,
+                                                  kernel_initializer=tf.random_uniform_initializer(
+                                                      (-1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0]))),
+                                                      1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0]))),
+                                                  bias_initializer=tf.random_uniform_initializer(
+                                                      (-1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0]))),
+                                                      1 / tf.sqrt(tf.to_float(self.env.observation_space.shape[0])))
+                                                  )
+
+                self.dense1_batchnorm = tf.layers.batch_normalization(self.dense1_mlp,fused=True, training=self.is_training)
+                self.dense1 = tf.nn.relu(self.dense1_batchnorm)
+            with tf.variable_scope('denes2'):
+                self.dense2_mlp = tf.layers.dense(self.dense1, 300,
+                                                  kernel_initializer=tf.random_uniform_initializer(
+                                                      (-1 / tf.sqrt(tf.to_float(400))), 1 / tf.sqrt(tf.to_float(400))),
+                                                  bias_initializer=tf.random_uniform_initializer(
+                                                      (-1 / tf.sqrt(tf.to_float(400))), 1 / tf.sqrt(tf.to_float(400))))
+                self.dense2_batchnorm = tf.layers.batch_normalization(self.dense2_mlp,fused=True, training=self.is_training)
+                self.dense2 = tf.nn.relu(self.dense2_batchnorm)
+            with tf.variable_scope('output'):
+                self.output_mlp = tf.layers.dense(self.dense2, self.env.action_space.shape[0],
+                                kernel_initializer=tf.random_uniform_initializer(-1*0.003, 0.003),
+                                bias_initializer=tf.random_uniform_initializer(-0.003, 0.003))
+                self.output_tanh = tf.nn.tanh(self.output_mlp)
+
+                self.output = tf.multiply(tf.to_float(2), self.output_tanh)
+
+                self.network_params = tf.trainable_variables(scope = self.scope)
+
+    def train_step(self, action_grads):
+        with tf.variable_scope(self.scope):
+            with tf.variable_scope('train'):
+                self.optimizer = tf.train.AdamOptimizer(self.leraning_rate)
+                self.grads = tf.gradients(self.output, self.network_params, -action_grads)
+                self.grads_scaled = list(map(lambda x: tf.divide(x, self.batch_size), self.grads))
+
+                update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS, self.scope)
+                with tf.control_dependencies(update_ops):
+                    train_step = self.optimizer.apply_gradients(zip(self.grads_scaled, self.network_params))
+
+                return train_step
+
 
 class Actor:
-    def __init__(self, env, sess, LR = 0.001, TAU = 0.125, discount = 0.99):
+    def __init__(self, env, sess, LR = 0.001, TAU = 0.125, discount = 0.99, scope = 'actor'):
         self.env = env
         self.sess = sess
-        
         self.learning_rate = LR
         self.tau = TAU
         self.discount = discount
+        self.scope = scope
         print("Summary actor network")
-        self.actor_model, self.weights, self.state = self._build_actor_model()
-        self.actor_target, self.target_weights, self.target_state = self._build_actor_model()
+        self.actor_model, self.weights, self.action_scaled, self.state = self._build_actor_model()
+        self.actor_target, self.target_weights, self.action_target_scaled, self.target_state = self._build_actor_model()
 
         #UPDATE ACTOR NETWORK
         self.action_gradient = tf.placeholder(tf.float32, [None, self.env.action_space.shape[0]])
-        self.actor_gradients = tf.gradients(self.actor_model.output, self.weights, -self.action_gradient)
-        grads = zip(self.actor_gradients, self.weights)
-        self.actor_update = tf.train.AdamOptimizer(self.learning_rate).apply_gradients(grads)
+        self.actor_gradients = tf.gradients(self.action_scaled, self.weights, -self.action_gradient)
+        self.grads_scaled = list(map(lambda x: tf.divide(x, 32), self.actor_gradients))
+        self.grads = zip(self.grads_scaled, self.weights)
 
-        init = tf.global_variables_initializer()
-        self.sess.run(init)
+        self.actor_update = tf.train.AdamOptimizer(self.learning_rate).apply_gradients(self.grads)
+
+        self.b_action = tf.placeholder(tf.float32, [None, self.env.action_space.shape[0]])
+        self.loss = tf.reduce_mean(tf.squared_difference(self.b_action, self.actor_model.output))
+
+        self.sess.run(tf.global_variables_initializer())
     
     def _build_actor_model(self):
         state = Input(shape = [self.env.observation_space.shape[0]])
         layer1 = Dense(200,  activation = 'relu')(state)
         layer2 = Dense(100, activation = 'relu')(layer1)
-        action = Dense(self.env.action_space.shape[0], activation = "linear")(layer2)
-        model = Model(inputs = state, outputs = action)
-        #model.compile(optimizer = Adam(self.learning_rate), loss = "mse")
+        action = Dense(self.env.action_space.shape[0], activation = "tanh")(layer2)
+        #for pendulum problem
+        #just for testing
+
+        sup = tf.constant(2, dtype = tf.float32)
+
+        action_scaled = tf.multiply(sup, action)
+        model = Model(inputs = state, outputs = action_scaled)
+
         model.summary()
-        return model, model.trainable_weights, state
+        return model, model.trainable_weights, action_scaled, state
+
+    def actor_train(self, grad, samples):
+        batch_state, batch_action, batch_reward, batch_ns, batch_info = samples
+
+        history = self.sess.run(self.actor_update, feed_dict= {
+            self.action_gradient : grad,
+            self.state : batch_state
+        })
+        return(history)
 
     def actor_target_update(self):
         actor_weights = self.actor_model.get_weights()
         actor_target_weights = self.actor_target.get_weights()
         for i in range(len(actor_weights)):
             actor_target_weights[i] = self.tau*actor_weights[i] + (1 - self.tau)*actor_target_weights[i]
-        self.actor_target.set_weights(actor_target_weights) 
+        self.actor_target.set_weights(actor_target_weights)
 
-    def actor_train(self, grad, samples):
-        batch_state, batch_action, batch_reward, batch_ns, batch_info = samples
-        #predicted_action = self.actor_model.predict(batch_state)
-        history = self.sess.run(self.actor_update, feed_dict= {
-            self.action_gradient : grad,
-            self.state : batch_state
-        })
-
-        #predicted_actions = self.actor_model.predict(batch_state)
-        #loss_tf = tf.reduce_mean(tf.squared_difference(batch_action, predicted_actions))
-        #loss = self.sess.run(loss_tf)
-
-        return(history)
-    
     def save(self, prefixe):
         name_file = prefixe + "_actor_target.h5"
         self.actor_target.save_weights(name_file)

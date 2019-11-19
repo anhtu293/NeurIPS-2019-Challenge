@@ -39,7 +39,7 @@ import itertools
 import time
 
 TAU = 0.125
-LR = 0.001
+LR = 0.0001
 BUFFER_SIZE = 20000
 BATCH_SIZE = 32
 DISCOUNT = 0.99
@@ -51,8 +51,10 @@ EPSILON_DECAY = 0.99
 def nth_root(num, n):
     return(n**(1/num))
 
-class OUNoise:
-    def __init__(self, size, seed, mu = 0., theta = 0.25, sigma = 0.05):
+
+
+"""lass OUNoise:
+    def __init__(self, size, seed, mu = 0., theta = 0.05, sigma = 0.05):
         self.mu = mu*np.ones(size)
         self.theta = theta
         self.sigma = sigma
@@ -66,7 +68,7 @@ class OUNoise:
         x = self.state
         dx = self.theta * (self.mu - x) + self.sigma*np.array([random.random() for i in range(len(x))])
         self.state = x + dx
-        return self.state
+        return self.state"""
 
 class Actor_Critic:
     def __init__(self, env, sess):
@@ -97,10 +99,10 @@ class Trainer():
         self.direction = direction
         self.num_episodes = num_episodes
         self.episode_start = 0
-        self.noise = OUNoise(env.action_space.shape[0],random.seed(1))
-        self.noise_decay = nth_root(self.num_episodes, 0.01/1)
+        self.noise = OUNoise(mu=np.zeros(self.model.env.action_space.shape[0]))
+        self.noise_decay = 0.4
         self.epsilon = EPSILON
-        self.epsilon_decay = nth_root(self.num_episodes, 0.01/self.epsilon)
+        self.epsilon_decay = nth_root(self.num_episodes, 0.001/self.epsilon)
         self.count_exp_replay = 0
         #reward summary for tensorboard
         self.tf_reward = tf.placeholder(tf.float32, shape=None, name='reward_summary')
@@ -151,7 +153,7 @@ class Trainer():
 
             #noise decay
             #epsilon decay
-            self.epsilon *=  self.epsilon_decay
+            #self.epsilon *=  self.epsilon_decay
 
             #noise = np.zeros([1, self.model.env.action_space.shape[0]])
 
@@ -162,13 +164,9 @@ class Trainer():
                 action_original = self.model.Actor.actor_model.predict(np.array([state]))
 
                 #action for training with noise
-                #action_with_noise[0] = np.zeros([1, self.model.env.action_space.shape[0]])
-
-                #We use epsilon decay to decide wether we add noise to action or not
-                #s = np.random.binomial(1, self.epsilon)
                 action_with_noise = np.zeros([1, self.model.env.action_space.shape[0]])
-                a = self.noise.sample()
-                action_with_noise = action_original[0] + a
+                #a = self.noise.sample()
+                action_with_noise = action_original[0]
 
                 #execute action action_with_noise and observe reward r_t and s_t+1
                 next_state, reward, done, info = self.model.env.step(action_with_noise)
@@ -200,39 +198,29 @@ class Trainer():
                 scores.clear()
             
             #reset env
-            state = env.reset()
+            state = self.model.env.reset()
 
             self.noise.reset()
             #epsilon decay
             self.epsilon *= self.epsilon_decay
 
-            noise = np.zeros([1, self.model.env.action_space.shape[0]])
-
-
             for i_step in itertools.count():
+                self.model.env.render()
 
                 action_original = self.model.Actor.actor_model.predict(np.asarray([state]))
-
-                #action for training with noise
-                #action_with_noise[0] = np.zeros([1, self.model.env.action_space.shape[0]])
-
-                #We use epsilon decay to decide wether we add noise to action or not
-                #s = np.random.binomial(1, self.epsilon)
+                #print("Action original : {}".format(action_original))
                 action_with_noise = np.zeros([1, self.model.env.action_space.shape[0]])
-                a = self.noise.sample()
+                a = self.noise() * self.epsilon
                 action_with_noise = action_original[0] + a
-
+                #print("Action with noise : {}".format(action_with_noise))
                 #execute action action_with_noise and observe reward r_t and s_t+1
                 next_state, reward, done, info = self.model.env.step(action_with_noise)
-
-                #reward = -reward
 
                 one_episode_score += reward
                 self.model.memory_buffer.memorize([state, action_with_noise, reward, next_state, done])
                 self.experience_replay()
 
                 if done:
-                    #print("Episode {} ->>> Scores : {}".format(i_episode, one_episode_score))
                     end = time.time()
                     scores.append(one_episode_score)
                     #write reward for tensorboard
@@ -249,12 +237,7 @@ class Trainer():
                     break
                 else:
                     state = next_state
-            """
-            name = "./log/training.txt"
-            with open(name, 'a') as f:
-                f.write("Total score : {} \n".format(one_episode_score))
-            f.close()
-            """
+
         #save information to log
         name = "./log/data.txt"
         with open(name, 'a') as f:
@@ -270,10 +253,14 @@ class Trainer():
         
     def experience_replay(self):
         samples = self.model.memory_buffer.sample_batch()
+
         history_critic = self.model.Critic.critic_train(self.model.Actor.actor_target, samples)
+
         action_for_grad = self.model.Actor.actor_model.predict(samples[0])
         grad = self.model.Critic.gradients(samples[0], action_for_grad)
+
         history_actor = self.model.Actor.actor_train(grad, samples)
+
         self.model.update_target()
 
         #write loss for tensorboard
@@ -292,7 +279,7 @@ def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--direction", default = "forward", help = "direction of falling")
     parser.add_argument("--out", default = "front", help = "prefix of output file")
-    parser.add_argument("--episodes", default = 30000, help = "number of episodes for training")
+    parser.add_argument("--episodes", default = 5000, help = "number of episodes for training")
     args = parser.parse_args()
     return args
 
