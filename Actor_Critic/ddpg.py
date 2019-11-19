@@ -190,12 +190,12 @@ class Trainer():
             
             #reset env
             state = env.reset(obs_as_dict = False)
-            
+
             #noise decay
             self.noise *= self.noise_decay
 
             #epsilon decay
-            self.epsilon *= sself.epsilon_decay
+            self.epsilon *= self.epsilon_decay
 
             noise = np.zeros([1, self.model.env.action_space.shape[0]])
 
@@ -203,6 +203,7 @@ class Trainer():
             
             for i_step in itertools.count():
                 state = [state]
+
                 action_original = self.model.Actor.actor_model.predict(np.asarray(state))
 
                 #action for training with noise
