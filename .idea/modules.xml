@@ -2,11 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-<<<<<<< HEAD
       <module fileurl="file://$PROJECT_DIR$/.idea/NeurIPS-2019-Challenge.iml" filepath="$PROJECT_DIR$/.idea/NeurIPS-2019-Challenge.iml" />
-=======
-      <module fileurl="file://$PROJECT_DIR$/.idea/dev.iml" filepath="$PROJECT_DIR$/.idea/dev.iml" />
->>>>>>> 1756d054ec419f08fb6cbcd7d69ce527063f0168
     </modules>
   </component>
 </project>
