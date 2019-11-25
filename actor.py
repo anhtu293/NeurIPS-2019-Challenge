@@ -42,8 +42,8 @@ class ActorNetwork:
         self.TAU = TAU
         self.discount = discount
         self.scope = scope
-        self.action_sup = 2
-        self.action_inf = -2
+        self.action_sup = self.env.action_space.high
+        self.action_inf = self.env.action_space.low
         self.batch_size = batch_size
         self.is_training = is_training
 
@@ -78,7 +78,7 @@ class ActorNetwork:
                                 bias_initializer=tf.random_uniform_initializer(-0.003, 0.003))
                 self.output_tanh = tf.nn.tanh(self.output_mlp)
 
-                self.output = tf.multiply(tf.to_float(2), self.output_tanh)
+                self.output = tf.add(tf.multiply(tf.to_float(1/2), self.output_tanh), tf.to_float(1/2))
 
                 self.network_params = tf.trainable_variables(scope = self.scope)
 
@@ -94,68 +94,3 @@ class ActorNetwork:
                     train_step = self.optimizer.apply_gradients(zip(self.grads_scaled, self.network_params))
 
                 return train_step
-
-
-class Actor:
-    def __init__(self, env, sess, LR = 0.001, TAU = 0.125, discount = 0.99, scope = 'actor'):
-        self.env = env
-        self.sess = sess
-        self.learning_rate = LR
-        self.tau = TAU
-        self.discount = discount
-        self.scope = scope
-        print("Summary actor network")
-        self.actor_model, self.weights, self.action_scaled, self.state = self._build_actor_model()
-        self.actor_target, self.target_weights, self.action_target_scaled, self.target_state = self._build_actor_model()
-
-        #UPDATE ACTOR NETWORK
-        self.action_gradient = tf.placeholder(tf.float32, [None, self.env.action_space.shape[0]])
-        self.actor_gradients = tf.gradients(self.action_scaled, self.weights, -self.action_gradient)
-        self.grads_scaled = list(map(lambda x: tf.divide(x, 32), self.actor_gradients))
-        self.grads = zip(self.grads_scaled, self.weights)
-
-        self.actor_update = tf.train.AdamOptimizer(self.learning_rate).apply_gradients(self.grads)
-
-        self.b_action = tf.placeholder(tf.float32, [None, self.env.action_space.shape[0]])
-        self.loss = tf.reduce_mean(tf.squared_difference(self.b_action, self.actor_model.output))
-
-        self.sess.run(tf.global_variables_initializer())
-    
-    def _build_actor_model(self):
-        state = Input(shape = [self.env.observation_space.shape[0]])
-        layer1 = Dense(200,  activation = 'relu')(state)
-        layer2 = Dense(100, activation = 'relu')(layer1)
-        action = Dense(self.env.action_space.shape[0], activation = "tanh")(layer2)
-        #for pendulum problem
-        #just for testing
-
-        sup = tf.constant(2, dtype = tf.float32)
-
-        action_scaled = tf.multiply(sup, action)
-        model = Model(inputs = state, outputs = action_scaled)
-
-        model.summary()
-        return model, model.trainable_weights, action_scaled, state
-
-    def actor_train(self, grad, samples):
-        batch_state, batch_action, batch_reward, batch_ns, batch_info = samples
-
-        history = self.sess.run(self.actor_update, feed_dict= {
-            self.action_gradient : grad,
-            self.state : batch_state
-        })
-        return(history)
-
-    def actor_target_update(self):
-        actor_weights = self.actor_model.get_weights()
-        actor_target_weights = self.actor_target.get_weights()
-        for i in range(len(actor_weights)):
-            actor_target_weights[i] = self.tau*actor_weights[i] + (1 - self.tau)*actor_target_weights[i]
-        self.actor_target.set_weights(actor_target_weights)
-
-    def save(self, prefixe):
-        name_file = prefixe + "_actor_target.h5"
-        self.actor_target.save_weights(name_file)
-        name_file = prefixe + "_actor_model.h5"
-        self.actor_model.save_weights(name_file)
-        print("Saving actor network completed ! \n")

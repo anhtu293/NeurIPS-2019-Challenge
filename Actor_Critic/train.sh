@@ -1,0 +1,11 @@
+python3 train.py \
+          --direction=forward \
+          --episodes=10000 \
+          --TAU=0.001 \
+          --lr_actor=0.0001 \
+          --lr_critic=0.001 \
+          --buffer_size=1000000 \
+          --init_buffer_size=50000 \
+          --batch_size=32 \
+          --discount=0.99 \
+          --noise_decay=0.2

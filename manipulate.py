@@ -24,5 +24,6 @@ def init():
 
 
 if __name__ == '__main__':
-   init()
+    print(env.action_space.high)
+    print(env.action_space.low)
 
