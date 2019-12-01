@@ -17,6 +17,7 @@ def init():
             state_desc = env.get_state_desc()
             print(type(state_desc["body_pos"]["toes_r"][0:2]))
             print(state_desc["body_pos"]["talus_l"][0:2])
+            print(state_desc["body_pos"]["talus_r"][0:2])
             print(state_desc["misc"]["mass_center_pos"])
             print(state_desc["body_pos_rot"])
             input("Press Enter to continue...")
@@ -24,6 +25,7 @@ def init():
 
 
 if __name__ == '__main__':
+    init()
     print(env.action_space.high)
     print(env.action_space.low)
 

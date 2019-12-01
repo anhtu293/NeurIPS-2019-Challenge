@@ -32,6 +32,7 @@ class Tools:
             pos += 1
         return activations
 # Counterclockwise
+# look forward as 0 degree r:-90, l:90, b:-180,
     def get_direction(self, toes_l, toes_r, mass_center_pos):
         l = np.asarray(toes_l)
         r = np.asarray(toes_r)
@@ -48,8 +49,21 @@ class Tools:
         body_direction = mass_center_pos - mp
         theta = math.atan2(body_direction[1], body_direction[0]) - \
                 math.atan2(straight_direction[1], straight_direction[0])
-        theta = theta * 180 / np.pi
+        #theta = theta * 180 / np.pi
         return theta
+
+    def get_reward(self, direction, env):
+        state_desc = env.get_state_desc()
+        pl = state_desc["body_pos"]["talus_l"][0:2]
+        pr = state_desc["body_pos"]["talus_r"][0:2]
+        ms = state_desc["misc"]["mass_center_pos"]
+        direction_real = self.get_direction(pl, pr, ms)
+        ecart = np.abs(direction_real - direction)
+        return -ecart^2
+
+
+
+
 
 if __name__ == '__main__':
     tools = Tools()

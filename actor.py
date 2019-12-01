@@ -38,7 +38,7 @@ class ActorNetwork:
     def __init__(self, env, states, LR = 0.0001, TAU = 0.125, discount = 0.99, batch_size = 32, scope = "actor",
                  is_training=False):
         self.env = env
-        self.leraning_rate = LR
+        self.learning_rate = LR
         self.TAU = TAU
         self.discount = discount
         self.scope = scope
@@ -85,7 +85,7 @@ class ActorNetwork:
     def train_step(self, action_grads):
         with tf.variable_scope(self.scope):
             with tf.variable_scope('train'):
-                self.optimizer = tf.train.AdamOptimizer(self.leraning_rate)
+                self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
                 self.grads = tf.gradients(self.output, self.network_params, -action_grads)
                 self.grads_scaled = list(map(lambda x: tf.divide(x, self.batch_size), self.grads))
 
