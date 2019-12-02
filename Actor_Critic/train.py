@@ -104,7 +104,8 @@ class Trainer():
     def __init__(self, model, env, sess, args):
         self.model = model
         self.sess = sess
-        self.direction = args.direction
+        directions = {"left" : np.pi/2, "right" : np.pi/2, "forward" : 0}
+        self.direction = directions[args.direction]
         self.env = env
         self.num_episodes = args.episodes
         self.episode_start = 0
@@ -180,6 +181,7 @@ class Trainer():
             #self.env.render()
             action = env.action_space.sample()
             state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
+            reward = self.tools.get_reward(self.direction, self.env)
             state = np.asarray(state)
             self.model.memory_buffer.add(action, reward, state, terminal)
 
@@ -221,9 +223,9 @@ class Trainer():
                 action += self.noise() * self.noise_decay
                 # execute action action_with_noise and observe reward r_t and s_t+1
                 state, reward, done, _ = self.env.step(action, obs_as_dict=False)
-                #
-                #We wait new reward function here.
-                #
+
+                reward = self.tools.get_reward(self.direction, self.env)
+
                 state = np.asarray(state)
                 self.model.memory_buffer.add(action, reward, state, done)
 
@@ -308,7 +310,6 @@ if __name__ == '__main__':
     sess = tf.Session(config=config)
     model = Actor_Critic(env, args)
     print("======= Start Training =======\n")
-
     trainer = Trainer(model, env, sess, args)
     if trainer.tryLoadWeights() == 1:
         print("Play to initiate buffer !")

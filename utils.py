@@ -61,10 +61,6 @@ class Tools:
         ecart = np.abs(direction_real - direction)
         return -ecart^2
 
-
-
-
-
 if __name__ == '__main__':
     tools = Tools()
     #print(tools.active_one_muscle("rect_fem", "r", 1))
