@@ -8,4 +8,4 @@ python3 train.py \
           --init_buffer_size=500 \
           --batch_size=8 \
           --discount=0.99 \
-          --noise_decay=0.2
+          --noise_decay=0.8

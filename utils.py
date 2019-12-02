@@ -59,7 +59,7 @@ class Tools:
         ms = state_desc["misc"]["mass_center_pos"]
         direction_real = self.get_direction(pl, pr, ms)
         ecart = np.abs(direction_real - direction)
-        return -ecart^2
+        return -ecart
 
 if __name__ == '__main__':
     tools = Tools()
