@@ -127,18 +127,26 @@ class Trainer():
                                                                      self.model.Critic_target.network_params, self.tau)
         self.update_actor_target = self.model.update_target_network(self.model.Actor.network_params,
                                                                     self.model.Actor_target.network_params, self.tau)
+
+
+
         sess.run(tf.initialize_all_variables())
-        #for testing only
+
+        #init target networks by copying weights from actor and critic network
         self.sess.run(self.model.update_target_network(self.model.Critic.network_params,self.model.Critic_target.network_params))
         self.sess.run(self.model.update_target_network(self.model.Actor.network_params, self.model.Actor_target.network_params))
 
         # reward summary for tensorboard
-        self.tf_reward = tf.Variable(0.0, trainable=False, name='reward_summary')
+        self.tf_reward = tf.Variable(0.0, trainable=False, name='Reward_per_episode')
         self.tf_reward_summary = tf.summary.scalar("Reward by episode", self.tf_reward)
 
         # time
         self.tf_time = tf.Variable(0.0, trainable=False, name='Time_per_episode')
         self.tf_time_summary = tf.summary.scalar("Time per episode", self.tf_time)
+
+        # step
+        self.tf_step = tf.Variable(0.0, trainable=False, name='Step_per_episode')
+        self.tf_step_summary = tf.summary.scalar("Step per episode", self.tf_step)
 
         # writer
         self.writer = tf.summary.FileWriter('./graphs', self.sess.graph)
@@ -246,6 +254,11 @@ class Trainer():
                     # timer
                     summary = self.sess.run(self.tf_time_summary, feed_dict={
                         self.tf_time: end - start
+                    })
+                    self.writer.add_summary(summary, i_episode)
+                    # timer
+                    summary = self.sess.run(self.tf_step_summary, feed_dict={
+                        self.tf_step: i_step
                     })
                     self.writer.add_summary(summary, i_episode)
                     break
