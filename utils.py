@@ -37,7 +37,7 @@ class Tools:
         l = np.asarray(toes_l)
         r = np.asarray(toes_r)
         mp = np.asarray((l + r)/2)
-        mass_center_pos = np.asarray(mass_center_pos)[0:1]
+        mass_center_pos = np.asarray(mass_center_pos)[0:2]
         l_to_r = r - l
         rot = np.pi/2
         m_t = np.zeros((2, 2))
@@ -65,4 +65,4 @@ if __name__ == '__main__':
     tools = Tools()
     #print(tools.active_one_muscle("rect_fem", "r", 1))
     a = math.sqrt(3)
-    print(tools.get_direction([-1, 0], [1, 0 ], [a, -1, 0]))
+    print(tools.get_direction([-1, 0], [1, 0], [a, -1, 0]))
