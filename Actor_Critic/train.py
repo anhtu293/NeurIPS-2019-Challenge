@@ -129,7 +129,6 @@ class Trainer():
                                                                     self.model.Actor_target.network_params, self.tau)
 
 
-
         sess.run(tf.initialize_all_variables())
 
         #init target networks by copying weights from actor and critic network
@@ -201,6 +200,7 @@ class Trainer():
         for i_episode in range(self.episode_start, self.num_episodes):
             start = time.time()
             one_episode_score = 0
+
             # write log of training
             name = "./log/training.txt"
             with open(name, 'a') as f:
@@ -233,7 +233,10 @@ class Trainer():
                 state, reward, done, _ = self.env.step(action, obs_as_dict=False)
 
                 reward = self.tools.get_reward(self.direction, self.env)
-
+                name = "./log/training.txt"
+                with open(name, 'a') as f:
+                    f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
+                f.close()
                 state = np.asarray(state)
                 self.model.memory_buffer.add(action, reward, state, done)
 
@@ -243,7 +246,7 @@ class Trainer():
 
                 if done or i_step == 50000:
                     end = time.time()
-                    print("Episode {} =>>>>> Score {}".format(i_episode, one_episode_score))
+                    print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
                     scores.append(one_episode_score)
                     # write reward for tensorboard
                     summary = self.sess.run(self.tf_reward_summary, feed_dict={
