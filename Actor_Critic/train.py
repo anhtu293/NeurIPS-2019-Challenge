@@ -104,7 +104,7 @@ class Trainer():
     def __init__(self, model, env, sess, args):
         self.model = model
         self.sess = sess
-        directions = {"left" : np.pi/2, "right" : np.pi/2, "forward" : 0}
+        directions = {"left" : np.pi/2, "right" : -np.pi/2, "forward" : 0}
         self.direction = directions[args.direction]
         self.env = env
         self.num_episodes = args.episodes
@@ -186,7 +186,7 @@ class Trainer():
         self.env.reset(obs_as_dict=False)
         for random_step in range(1, args.init_buffer_size + 1):
             #self.env.render()
-            action = env.action_space.sample()
+            action = self.env.action_space.sample()
             state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
             reward = self.tools.get_reward(self.direction, self.env)
             state = np.asarray(state)
@@ -210,16 +210,18 @@ class Trainer():
             if (i_episode + 1) % 100 == 0:
                 avg = np.mean(np.asarray(scores))
                 if (i_episode + 1) % 1000 == 0:
-                    prefixe = "./checkpoints/"
-                    self.model.Actor.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
-                    self.model.Critic.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
+
+                    #self.model.Actor.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
+                    #self.model.Critic.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
+                    self.saveWeights("./checkpoints/{}_{}".format(args.direction, args.episodes))
+                    self.noise_decay *= 0.8
                 print(
                     "Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode + 1, self.num_episodes,
                                                                                        avg))
                 scores.clear()
 
             # reset env
-            state = env.reset(obs_as_dict=False)
+            state = self.env.reset(obs_as_dict=False)
             state = np.asarray(state)
             self.noise.reset()
 
@@ -319,7 +321,7 @@ class Trainer():
 
 if __name__ == '__main__':
     args = arg_parser()
-    env = L2M2019Env(visualize=False)
+    env = L2M2019Env(visualize=True)
     # Create session
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth = True
