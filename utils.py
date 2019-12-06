@@ -32,7 +32,7 @@ class Tools:
             pos += 1
         return activations
 # Counterclockwise
-# look forward as 0 degree r:-90, l:90, b:-180,
+
     def get_direction(self, toes_l, toes_r, mass_center_pos):
         l = np.asarray(toes_l)
         r = np.asarray(toes_r)
@@ -53,14 +53,33 @@ class Tools:
         return theta
 
     def get_reward(self, direction, env):
-        state_desc = env.get_state_desc()
+        state_desc = env
         pl = state_desc["body_pos"]["talus_l"][0:2]
         pr = state_desc["body_pos"]["talus_r"][0:2]
         ms = state_desc["misc"]["mass_center_pos"]
         direction_real = self.get_direction(pl, pr, ms)
         ecart = np.abs(direction_real - direction)
         return -ecart
+    """
+    def get_direction(self, toes_l, toes_r, mass_center_pos):
+        l = np.asarray(toes_l)
+        r = np.asarray(toes_r)
+        mp = np.asarray((l + r) / 2)
+        mass_center_pos = np.asarray(mass_center_pos)
+        body_direction = mass_center_pos - mp
 
+        return body_direction
+
+    def get_reward(self, direction, state_desc):
+        pl = state_desc["body_pos"]["talus_l"]
+        pr = state_desc["body_pos"]["talus_r"]
+        ms = state_desc["misc"]["mass_center_pos"]
+
+
+        #direction_real = self.get_direction(pl, pr, ms)
+        #ecart = np.abs(direction_real - direction)
+        return -ms
+    """
 if __name__ == '__main__':
     tools = Tools()
     #print(tools.active_one_muscle("rect_fem", "r", 1))

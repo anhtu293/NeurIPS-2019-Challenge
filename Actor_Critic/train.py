@@ -151,8 +151,8 @@ class Trainer():
         self.writer = tf.summary.FileWriter('./graphs', self.sess.graph)
 
     def saveWeights(self, prefixe):
-        save_path = prefixe + "model.ckpt"
-        save = self.saver(self.sess, save_path)
+        path = prefixe + "model.ckpt"
+        save = self.saver.save(self.sess, path)
 
     def tryLoadWeights(self):
         print("Load weights \n")
@@ -188,7 +188,7 @@ class Trainer():
             #self.env.render()
             action = self.env.action_space.sample()
             state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
-            reward = self.tools.get_reward(self.direction, self.env)
+            reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
             state = np.asarray(state)
             self.model.memory_buffer.add(action, reward, state, terminal)
 
@@ -210,10 +210,9 @@ class Trainer():
             if (i_episode + 1) % 100 == 0:
                 avg = np.mean(np.asarray(scores))
                 if (i_episode + 1) % 1000 == 0:
-
                     #self.model.Actor.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
                     #self.model.Critic.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
-                    self.saveWeights("./checkpoints/{}_{}".format(args.direction, args.episodes))
+                    self.saveWeights("./checkpoints/{}_{}_".format(args.direction, i_episode))
                     self.noise_decay *= 0.8
                 print(
                     "Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode + 1, self.num_episodes,
@@ -234,7 +233,7 @@ class Trainer():
                 # execute action action_with_noise and observe reward r_t and s_t+1
                 state, reward, done, _ = self.env.step(action, obs_as_dict=False)
 
-                reward = self.tools.get_reward(self.direction, self.env)
+                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
                 name = "./log/training.txt"
                 with open(name, 'a') as f:
                     f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
@@ -279,7 +278,7 @@ class Trainer():
         f.close()
         print("Log saved successfully! \n")
         # save model
-        self.saveWeights("./models/{}_{}".format(args.direction, args.episodes))
+        self.saveWeights("./models/{}_{}_".format(args.direction, args.episodes))
         print("Models saved successfully ! \n")
 
     def experience_replay(self):
