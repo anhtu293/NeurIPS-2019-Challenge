@@ -104,8 +104,8 @@ class Trainer():
     def __init__(self, model, env, sess, args):
         self.model = model
         self.sess = sess
-        directions = {"left" : np.pi/2, "right" : -np.pi/2, "forward" : 0}
-        self.direction = directions[args.direction]
+        directions = {"left" : np.pi/2, "right" : -np.pi/2, "forward" : 1}
+        self.direction = args.direction
         self.env = env
         self.num_episodes = args.episodes
         self.episode_start = 0

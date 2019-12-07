@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Tools for training
 # 1) direction():
@@ -32,7 +33,7 @@ class Tools:
             pos += 1
         return activations
 # Counterclockwise
-
+    """
     def get_direction(self, toes_l, toes_r, mass_center_pos):
         l = np.asarray(toes_l)
         r = np.asarray(toes_r)
@@ -75,11 +76,20 @@ class Tools:
         pr = state_desc["body_pos"]["talus_r"]
         ms = state_desc["misc"]["mass_center_pos"]
 
+        center_2_feet = np.asarray((np.asarray(pl) + np.asarray(pr)) / 2)
+        if direction == "forward":
+            center_2_feet[0] = 1
+        if direction == "left":
+            center_2_feet[2] = 1
+        if direction == "right":
+            center_2_feet[1] = 1
+        direction_real = self.get_direction(pl, pr, ms)
 
-        #direction_real = self.get_direction(pl, pr, ms)
-        #ecart = np.abs(direction_real - direction)
-        return -ms
-    """
+        direction_real = np.asarray([direction_real])
+        direction_to_fall = np.asarray([center_2_feet])
+        penalty = cosine_similarity(direction_real, direction_to_fall)
+        return penalty[0][0]
+
 if __name__ == '__main__':
     tools = Tools()
     #print(tools.active_one_muscle("rect_fem", "r", 1))

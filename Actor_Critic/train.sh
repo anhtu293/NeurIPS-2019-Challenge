@@ -4,8 +4,8 @@ python3 train.py \
           --TAU=0.001 \
           --lr_actor=0.0001 \
           --lr_critic=0.001 \
-          --buffer_size=10000 \
-          --init_buffer_size=16 \
-          --batch_size=8 \
+          --buffer_size=1000000 \
+          --init_buffer_size=5000 \
+          --batch_size=16 \
           --discount=0.99 \
           --noise_decay=0.8
