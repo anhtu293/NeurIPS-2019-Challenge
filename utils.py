@@ -32,36 +32,7 @@ class Tools:
                     return
             pos += 1
         return activations
-# Counterclockwise
-    """
-    def get_direction(self, toes_l, toes_r, mass_center_pos):
-        l = np.asarray(toes_l)
-        r = np.asarray(toes_r)
-        mp = np.asarray((l + r)/2)
-        mass_center_pos = np.asarray(mass_center_pos)[0:2]
-        l_to_r = r - l
-        rot = np.pi/2
-        m_t = np.zeros((2, 2))
-        m_t[0][0] = np.cos(rot)
-        m_t[0][1] = -np.sin(rot)
-        m_t[1][0] = np.sin(rot)
-        m_t[1][1] = -np.cos(rot)
-        straight_direction = np.dot(m_t, l_to_r)
-        body_direction = mass_center_pos - mp
-        theta = math.atan2(body_direction[1], body_direction[0]) - \
-                math.atan2(straight_direction[1], straight_direction[0])
-        #theta = theta * 180 / np.pi
-        return theta
 
-    def get_reward(self, direction, env):
-        state_desc = env
-        pl = state_desc["body_pos"]["talus_l"][0:2]
-        pr = state_desc["body_pos"]["talus_r"][0:2]
-        ms = state_desc["misc"]["mass_center_pos"]
-        direction_real = self.get_direction(pl, pr, ms)
-        ecart = np.abs(direction_real - direction)
-        return -ecart
-    """
     def get_direction(self, toes_l, toes_r, mass_center_pos):
         l = np.asarray(toes_l)
         r = np.asarray(toes_r)
@@ -87,8 +58,9 @@ class Tools:
 
         direction_real = np.asarray([direction_real])
         direction_to_fall = np.asarray([center_2_feet])
-        penalty = cosine_similarity(direction_real, direction_to_fall)
-        return penalty[0][0]
+        cosine = cosine_similarity(direction_real, direction_to_fall)[0][0]
+        penalty = -np.arccos(cosine)
+        return penalty
 
 if __name__ == '__main__':
     tools = Tools()
