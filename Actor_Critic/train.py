@@ -21,6 +21,7 @@ import sys
 
 sys.path.append("../")
 import gym
+import sys
 from osim.env import L2M2019Env
 import numpy as np
 from matplotlib import pyplot as plt
@@ -186,9 +187,13 @@ class Trainer():
         self.env.reset(obs_as_dict=False)
         for random_step in range(1, args.init_buffer_size + 1):
             #self.env.render()
+            print("\r Examples : {}/{}".format(random_step, args.init_buffer_size), end="")
+            sys.stdout.flush()
             action = self.env.action_space.sample()
             state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
-            reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+            reward = 0
+            if terminal :
+                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
             state = np.asarray(state)
             self.model.memory_buffer.add(action, reward, state, terminal)
 
@@ -233,7 +238,9 @@ class Trainer():
                 # execute action action_with_noise and observe reward r_t and s_t+1
                 state, reward, done, _ = self.env.step(action, obs_as_dict=False)
 
-                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                reward = 0
+                if terminal:
+                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
                 name = "./log/training.txt"
                 with open(name, 'a') as f:
                     f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
@@ -320,7 +327,7 @@ class Trainer():
 
 if __name__ == '__main__':
     args = arg_parser()
-    env = L2M2019Env(visualize=True)
+    env = L2M2019Env(visualize=False)
     # Create session
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth = True
