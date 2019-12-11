@@ -34,7 +34,7 @@ from utils import Tools
 import argparse
 import itertools
 import time
-from replay_buffer import ReplayMemory
+from replay_buffer import ReplayBuffer
 """
 TAU = 0.001
 LR = 0.0001
@@ -65,8 +65,7 @@ def arg_parser():
 class Actor_Critic:
     def __init__(self, env, args):
         self.env = env
-        self.memory_buffer = ReplayMemory(args.buffer_size, args.init_buffer_size,
-                                          args.batch_size, env.observation_space.shape, env.action_space.shape)
+        self.memory_buffer = ReplayBuffer(args.buffer_size)
         self.learning_rate_actor = args.lr_actor
         self.learning_rate_critic = args.lr_critic
         self.tau = args.TAU
@@ -113,6 +112,7 @@ class Trainer():
         self.noise = OUNoise(mu=np.zeros(self.env.action_space.shape))
         self.noise_decay = args.noise_decay
         self.count_exp_replay = 0
+        self.train_iteration = 0
         self.tau = args.TAU
         self.tools = Tools()
         self.saver = tf.train.Saver()
@@ -184,19 +184,20 @@ class Trainer():
             return (1)
 
     def play_to_init_buffer(self):
-        self.env.reset(obs_as_dict=False)
+        state = self.env.reset(obs_as_dict=False)
+        state = np.asarray(state)
         for random_step in range(1, args.init_buffer_size + 1):
             #self.env.render()
             print("\r Examples : {}/{}".format(random_step, args.init_buffer_size), end="")
             sys.stdout.flush()
             action = self.env.action_space.sample()
-            state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
-            reward = 0
-            if terminal :
-                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
-            state = np.asarray(state)
-            self.model.memory_buffer.add(action, reward, state, terminal)
+            next_state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
 
+            reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+
+            next_state = np.asarray(next_state)
+            self.model.memory_buffer.add(state, action, reward, next_state, terminal)
+            state = np.copy(next_state)
             if terminal:
                 self.env.reset()
 
@@ -236,20 +237,18 @@ class Trainer():
                 })[0]
                 action += self.noise() * self.noise_decay
                 # execute action action_with_noise and observe reward r_t and s_t+1
-                state, reward, done, _ = self.env.step(action, obs_as_dict=False)
+                next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
 
-                reward = 0
-                if terminal:
-                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
                 name = "./log/training.txt"
                 with open(name, 'a') as f:
                     f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
                 f.close()
-                state = np.asarray(state)
-                self.model.memory_buffer.add(action, reward, state, done)
+                next_state = np.asarray(next_state)
+                self.model.memory_buffer.add(state, action, reward, next_state, done)
 
                 one_episode_score += reward
-
+                state = np.copy(next_state)
                 self.experience_replay()
 
                 if done or i_step == 50000:
@@ -289,7 +288,25 @@ class Trainer():
         print("Models saved successfully ! \n")
 
     def experience_replay(self):
-        batch_state, batch_action, batch_reward, batch_next_state, batch_done = self.model.memory_buffer.getMinibatch()
+        #batch_state, batch_action, batch_reward, batch_next_state, batch_done = self.model.memory_buffer.getMinibatch()
+
+        if self.model.memory_buffer.count() < self.model.batch_size * 20:
+            return
+        batch, w_id, eid = self.model.memory_buffer.getBatch(self.model.batch_size)
+
+        batch_state = np.zeros((self.model.batch_size, self.env.observation_space.shape[0]))
+        batch_reward = np.zeros((self.model.batch_size,))
+        batch_action = np.zeros((self.model.batch_size, self.env.action_space.shape[0]))
+        batch_next_state = np.zeros((self.model.batch_size, self.env.observation_space.shape[0]))
+        batch_done = np.zeros((self.model.batch_size,))
+        e_id = eid
+
+        for k, (s0, a, r, s1, done) in enumerate(batch):
+            states[k] = s0
+            rewards[k] = r
+            actions[k] = a
+            next_states[k] = s1
+            batch_done = done
 
         future_action = self.sess.run(self.model.Actor_target.output, feed_dict={
             self.model.states_ph : batch_next_state
@@ -324,6 +341,25 @@ class Trainer():
         self.sess.run(self.update_critic_target)
         self.sess.run(self.update_actor_target)
 
+        #calcul TD error
+        old_Q_value = self.sess.run(self.model.Critic.output, feed_dict={
+            self.model.states_ph: batch_state,
+            self.model.actions_ph: batch_action
+        })[:,0]
+        future_action = future_action = self.sess.run(self.model.Actor_target.output, feed_dict={
+            self.model.states_ph : batch_next_state
+        })
+        future_Q_value = self.sess.run(self.model.Critic_target.output, feed_dict={
+            self.model.states_ph : batch_next_state,
+            self.model.actions_ph : future_action
+        })[:,0]
+        error = np.absolute(batch_reward + self.model.discount*(future_Q_value - old_Q_value))
+
+        #update priority
+        self.model.memory_buffer.update_priority(e_id, error)
+        self.train_iteration += 1
+        if self.train_iteration % 100 == 0:
+            self.replay_buffer.rebalance()
 
 if __name__ == '__main__':
     args = arg_parser()
@@ -337,7 +373,7 @@ if __name__ == '__main__':
     trainer = Trainer(model, env, sess, args)
     if trainer.tryLoadWeights() == 1:
         print("Play to initiate buffer !")
-        trainer.play_to_init_buffer()
+        #trainer.play_to_init_buffer()
 
     trainer.DDPG(model_name_prefix="./models/" + args.direction)
     print("======= Training Completed =======\n")

@@ -1,70 +1,66 @@
-import numpy as np
+from collections import deque
+import random
+import rank_based
+
+class ReplayBuffer(object):
+
+  def __init__(self, buffer_size):
+
+    self.buffer_size = buffer_size
+    self.num_experiences = 0
+    #self.buffer = deque()
+    conf = {'size': 10000,
+            'learn_start': 32,
+            'partition_num': 32,
+            'total_step': 10000,
+            'batch_size': 32}
+    self.replay_memory = rank_based.Experience(conf)
+
+  def getBatch(self, batch_size):
+    # random draw N
+    #return random.sample(self.buffer, batch_size)
+    batch, w, e_id = self.replay_memory.sample(self.num_experiences)
+    self.e_id=e_id
+    self.w_id=w
+    '''#state t
+    self.state_t_batch = [item[0] for item in batch]
+    self.state_t_batch = np.array(self.state_t_batch)
+    #state t+1        
+    self.state_t_1_batch = [item[1] for item in batch]
+    self.state_t_1_batch = np.array( self.state_t_1_batch)
+    self.action_batch = [item[2] for item in batch]
+    self.action_batch = np.array(self.action_batch)
+    self.action_batch = np.reshape(self.action_batch,[len(self.action_batch),self.num_actions])
+    self.reward_batch = [item[3] for item in batch]
+    self.reward_batch = np.array(self.reward_batch)
+    self.done_batch = [item[4] for item in batch]
+    self.done_batch = np.array(self.done_batch)''' 
+    return batch, self.w_id, self.e_id
 
 
-class ReplayMemory:
-    def __init__(self, size, min_size, batch_size, state_dims, action_dims):
-        self.buffer_size = size
-        self.min_buffer_size = min_size
-        self.state_dims = state_dims
-        self.action_dims = action_dims
-        self.batch_size = batch_size
-        self.count = 0
-        self.current = 0
+  def size(self):
+    return self.buffer_size
 
-        # preallocate memory
-        self.actions = np.empty((self.buffer_size,) + self.action_dims, dtype=np.float32)
-        self.rewards = np.empty(self.buffer_size, dtype=np.float32)
-        self.states = np.empty((self.buffer_size,) + self.state_dims, dtype=np.float32)
-        self.terminals = np.empty(self.buffer_size, dtype=np.bool)
+  def add(self, state, action, reward, next_state, done):#add(self, state, next_state, action, reward, done):
+    #new_experience = (state, next_action, action, reward, done)#(state, action, reward, next_state, done)
+    self.replay_memory.store((state, action, reward, next_state, done))
+    #if self.num_experiences < self.buffer_size:
+    #  self.buffer.append(new_experience)
+    self.num_experiences += 1
+    #else:
+    #  self.buffer.popleft()
+    #  self.buffer.append(new_experience)
 
-        self.state_batch = np.empty((self.batch_size,) + self.state_dims, dtype=np.float32)
-        self.next_state_batch = np.empty((self.batch_size,) + self.state_dims, dtype=np.float32)
+  def count(self):
+    # if buffer is full, return buffer size
+    # otherwise, return experience counter
+    return self.num_experiences
 
-    def add(self, action, reward, state, terminal):
-        assert state.shape == self.state_dims
-        assert action.shape == self.action_dims
+  #def erase(self):
+  #  self.buffer = deque()
+  #  self.num_experiences = 0
+  def rebalance(self):
+    self.replay_memory.rebalance()
 
-        self.actions[self.current, ...] = action
-        self.rewards[self.current] = reward
-        self.states[self.current, ...] = state
-        self.terminals[self.current] = terminal
-        self.count = max(self.count, self.current + 1)
-        self.current = (self.current + 1) % self.buffer_size
-
-    def getState(self, index):
-        # Returns the state at position 'index'.
-        return self.states[index, ...]
-
-    def getMinibatch(self):
-        # memory should be initially populated with random actions up to 'min_buffer_size'
-        assert self.count >= self.min_buffer_size, "Replay memory does not contain enough samples to start learning, take random actions to populate replay memory"
-
-        # sample random indexes
-        indexes = []
-        # do until we have a full batch of states
-        while len(indexes) < self.batch_size:
-            # find random index
-            while True:
-                # sample one index
-                index = np.random.randint(1, self.count)
-                # check index is ok
-                # if state and next state wrap over current pointer, then get new one (as state from current pointer position will not be from same episode as state from previous position)
-                if index == self.current:
-                    continue
-                # if state and next state wrap over episode end, i.e. current state is terminal, then get new one (note that next state can be terminal)
-                if self.terminals[index - 1]:
-                    continue
-                # index is ok to use
-                break
-
-            # Populate states and next_states with selected state and next_state
-            # NB! having index first is fastest in C-order matrices
-            self.state_batch[len(indexes), ...] = self.getState(index - 1)
-            self.next_state_batch[len(indexes), ...] = self.getState(index)
-            indexes.append(index)
-
-        actions = self.actions[indexes]
-        rewards = self.rewards[indexes]
-        terminals = self.terminals[indexes]
-
-        return self.state_batch, actions, rewards, self.next_state_batch, terminals
+  def update_priority(self, indices, delta):
+    self.replay_memory.update_priority(indices, delta)
