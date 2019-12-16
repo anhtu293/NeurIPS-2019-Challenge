@@ -238,10 +238,8 @@ class Trainer():
                 action += self.noise() * self.noise_decay
                 # execute action action_with_noise and observe reward r_t and s_t+1
                 next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
-                if not done:
-                    reward = 0
-                else:
-                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+
+                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
                 name = "./log/training.txt"
                 with open(name, 'a') as f:
                     f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))

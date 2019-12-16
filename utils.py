@@ -58,8 +58,8 @@ class Tools:
 
         direction_real = np.asarray([direction_real])
         direction_to_fall = np.asarray([center_2_feet])
-        cosine = cosine_similarity(direction_real, direction_to_fall)[0][0]
-        penalty = np.pi - np.arccos(cosine)
+        penalty = cosine_similarity(direction_real, direction_to_fall)[0][0]
+        #penalty = np.pi - np.arccos(cosine)
         return penalty
 
 if __name__ == '__main__':
