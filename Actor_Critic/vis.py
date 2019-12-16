@@ -35,6 +35,7 @@ import argparse
 import itertools
 import time
 from replay_buffer import ReplayBuffer
+
 """
 TAU = 0.001
 LR = 0.0001
@@ -46,6 +47,7 @@ NOISE_DECAY = 0.99
 EPSILON = 1
 EPSILON_DECAY = 0.99
 """
+
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -62,10 +64,10 @@ def arg_parser():
     args = parser.parse_args()
     return args
 
+
 class Actor_Critic:
-    def __init__(self, env, sess, args):
+    def __init__(self, env, args):
         self.env = env
-        self.sess = sess
         self.memory_buffer = ReplayBuffer(args.buffer_size)
         self.learning_rate_actor = args.lr_actor
         self.learning_rate_critic = args.lr_critic
@@ -75,7 +77,7 @@ class Actor_Critic:
         self.states_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.observation_space.shape))
         self.actions_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
         self.is_training_ph = tf.placeholder_with_default(True, shape=None)
-        self.Actor = ActorNetwork(env=self.env, states=self.states_ph, LR = self.learning_rate_actor, TAU = self.tau,
+        self.Actor = ActorNetwork(env=self.env, states=self.states_ph, LR=self.learning_rate_actor, TAU=self.tau,
                                   discount=self.discount, scope="actor_main", batch_size=self.batch_size,
                                   is_training=False)
         self.Critic = CriticNetwork(env=self.env, states=self.states_ph, actions=self.actions_ph,
@@ -96,7 +98,7 @@ class Trainer():
     def __init__(self, model, env, sess, args):
         self.model = model
         self.sess = sess
-        directions = {"left" : np.pi/2, "right" : -np.pi/2, "forward" : 1}
+        directions = {"left": np.pi / 2, "right": -np.pi / 2, "forward": 1}
         self.direction = args.direction
         self.env = env
         self.num_episodes = args.episodes
@@ -107,57 +109,45 @@ class Trainer():
         self.train_iteration = 0
         self.tau = args.TAU
         self.tools = Tools()
-        self.sess.run(tf.initialize_all_variables())
-        #self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver()
+        self.target_Q_ph = tf.placeholder(tf.float32, shape=(None, 1))
+        self.actions_grads_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
+
+        # self.sess.run(tf.initialize_all_variables())
+
+        self.saver = tf.train.Saver()
 
     def load_model(self):
-
-        with tf.Session() as self.sess:
-
-            self.saver = tf.train.import_meta_graph('./checkpoints/left_1999_model.ckpt.meta')
-            self.saver.restore(self.sess, "./checkpoints/left_1999_model.ckpt")
-            print("Load successful ! ")
-
-        #graph_def = tf.get_default_graph().as_graph_def()
-        #graph = tf.get_default_graph()
-        #print(self.sess.graph.get_operations())
-        """
-        self.actor = tf.graph_util.extract_sub_graph(
-            graph_def,
-            ["actor_main/output/Add_1"]
-        )
-        print(self.actor)
-        self.graph = tf.import_graph_def(self.actor,
-                                    input_map = {"Placeholder_4" : self.model.states_ph},
-                                    return_elements = ["actor_main/output/Add_1:0"],
-                                    name='')
-        #with tf.Session() as self.sess:
-        """
-        #self.states = graph.get_tensor_by_name("Placeholder_4")
+        # self.saver = tf.train.import_meta_graph('./checkpoints/left_1999_model.ckpt.meta')
+        self.saver.restore(self.sess, "./checkpoints/left_1999_model.ckpt")
+        print("Load successful ! ")
 
     def visualisation(self):
-        with tf.Session() as self.sess:
-            for i in range(10):
-                state = self.env.reset(obs_as_dict=False)
-                state = np.asarray(state)
-                self.noise.reset()
+        for i_episode in range(10):
+            state = self.env.reset(obs_as_dict=False)
+            state = np.asarray(state)
+            self.noise.reset()
+            one_episode_score = 0
 
-                for i_step in itertools.count():
-                    action = self.sess.run(self.model.Actor.output, feed_dict={
-                        self.model.states_ph : np.expand_dims(state,0)
-                    })[0]
+            for i_step in itertools.count():
+                action = self.sess.run(self.model.Actor.output, feed_dict={
+                    self.model.states_ph: np.expand_dims(state, 0)
+                })[0]
 
-                    # execute action action_with_noise and observe reward r_t and s_t+1
-                    next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
+                # execute action action_with_noise and observe reward r_t and s_t+1
+                next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
 
-                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
 
-                    next_state = np.asarray(next_state)
-                    state = np.copy(next_state)
+                next_state = np.asarray(next_state)
+                state = np.copy(next_state)
 
-                    if done or i_step == 50000:
-                        print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
-                        break
+                print("Time step {} test {} =>>>>>>> reward {} :".format(i_step, i_episode, reward))
+                one_episode_score += reward
+
+                if done or i_step == 50000:
+                    print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
+                    break
 
 
 if __name__ == '__main__':
@@ -167,7 +157,8 @@ if __name__ == '__main__':
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
-    model = Actor_Critic(env, sess,  args)
+    # tf.reset_default_graph()
+    model = Actor_Critic(env, args)
     trainer = Trainer(model, env, sess, args)
     trainer.load_model()
     trainer.visualisation()
