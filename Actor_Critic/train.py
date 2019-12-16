@@ -130,7 +130,7 @@ class Trainer():
                                                                     self.model.Actor_target.network_params, self.tau)
 
 
-        sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.initialize_all_variables())
 
         #init target networks by copying weights from actor and critic network
         self.sess.run(self.model.update_target_network(self.model.Critic.network_params,self.model.Critic_target.network_params))
@@ -151,9 +151,9 @@ class Trainer():
         # writer
         self.writer = tf.summary.FileWriter('./graphs', self.sess.graph)
 
-    def saveWeights(self, prefixe):
+    def saveWeights(self, prefixe, i_episode):
         path = prefixe + "model.ckpt"
-        save = self.saver.save(self.sess, path)
+        save = self.saver.save(self.sess, path, global_step=i_episode)
 
     def tryLoadWeights(self):
         print("Load weights \n")
@@ -218,7 +218,7 @@ class Trainer():
                 if (i_episode + 1) % 1000 == 0:
                     #self.model.Actor.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
                     #self.model.Critic.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
-                    self.saveWeights("./checkpoints/{}_{}_".format(args.direction, i_episode))
+                    self.saveWeights("./checkpoints/{}_{}_".format(args.direction, i_episode), i_episode)
                     self.noise_decay *= 0.8
                 print(
                     "Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode + 1, self.num_episodes,
@@ -238,8 +238,10 @@ class Trainer():
                 action += self.noise() * self.noise_decay
                 # execute action action_with_noise and observe reward r_t and s_t+1
                 next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
-
-                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                if not done:
+                    reward = 0
+                else:
+                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
                 name = "./log/training.txt"
                 with open(name, 'a') as f:
                     f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
@@ -284,13 +286,13 @@ class Trainer():
         f.close()
         print("Log saved successfully! \n")
         # save model
-        self.saveWeights("./models/{}_{}_".format(args.direction, args.episodes))
+        self.saveWeights("./models/{}_{}_".format(args.direction, args.episodes), args.episodes)
         print("Models saved successfully ! \n")
 
     def experience_replay(self):
         #batch_state, batch_action, batch_reward, batch_next_state, batch_done = self.model.memory_buffer.getMinibatch()
 
-        if self.model.memory_buffer.count() < self.model.batch_size * 20:
+        if self.model.memory_buffer.count() < self.model.batch_size * 5:
             return
         batch, w_id, eid = self.model.memory_buffer.getBatch(self.model.batch_size)
 
@@ -302,11 +304,13 @@ class Trainer():
         e_id = eid
 
         for k, (s0, a, r, s1, done) in enumerate(batch):
-            states[k] = s0
-            rewards[k] = r
-            actions[k] = a
-            next_states[k] = s1
-            batch_done = done
+            batch_state[k] = s0
+            batch_reward[k] = r
+            batch_action[k] = a
+            batch_next_state[k] = s1
+
+            batch_done[k] = done
+        batch_done = batch_done.astype(int)
 
         future_action = self.sess.run(self.model.Actor_target.output, feed_dict={
             self.model.states_ph : batch_next_state
@@ -359,7 +363,7 @@ class Trainer():
         self.model.memory_buffer.update_priority(e_id, error)
         self.train_iteration += 1
         if self.train_iteration % 100 == 0:
-            self.replay_buffer.rebalance()
+            self.model.memory_buffer.rebalance()
 
 if __name__ == '__main__':
     args = arg_parser()
