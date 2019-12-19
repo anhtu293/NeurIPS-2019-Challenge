@@ -51,7 +51,7 @@ EPSILON_DECAY = 0.99
 
 def arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--direction", default="forward", help="direction of falling")
+    parser.add_argument("--direction", default="left", help="direction of falling")
     parser.add_argument("--episodes", default=10000, type=int, help="number of episodes for training")
     parser.add_argument("--TAU", default=0.001, type=float, help="TAU for updating target model")
     parser.add_argument("--lr_actor", default=0.0001, type=float, help="learning rate for actor")
@@ -80,7 +80,8 @@ class Actor_Critic:
         self.Actor = ActorNetwork(env=self.env, states=self.states_ph, LR=self.learning_rate_actor, TAU=self.tau,
                                   discount=self.discount, scope="actor_main", batch_size=self.batch_size,
                                   is_training=False)
-        self.Critic = CriticNetwork(env=self.env, states=self.states_ph, actions=self.actions_ph,
+
+        """self.Critic = CriticNetwork(env=self.env, states=self.states_ph, actions=self.actions_ph,
                                     LR=self.learning_rate_critic,
                                     TAU=self.tau, discount=self.discount, scope="critic_main",
                                     batch_size=self.batch_size,
@@ -91,13 +92,11 @@ class Actor_Critic:
         self.Critic_target = CriticNetwork(env=self.env, states=self.states_ph, actions=self.actions_ph,
                                            LR=self.learning_rate_critic,
                                            TAU=self.tau, discount=self.discount, scope="critic_target",
-                                           batch_size=self.batch_size, is_training=self.is_training_ph)
+                                           batch_size=self.batch_size, is_training=self.is_training_ph)"""
 
 
 class Trainer():
-    def __init__(self, model, env, sess, args):
-        self.model = model
-        self.sess = sess
+    def __init__(self, env, args):
         directions = {"left": np.pi / 2, "right": -np.pi / 2, "forward": 1}
         self.direction = args.direction
         self.env = env
@@ -109,57 +108,88 @@ class Trainer():
         self.train_iteration = 0
         self.tau = args.TAU
         self.tools = Tools()
-        self.saver = tf.train.Saver()
-        self.target_Q_ph = tf.placeholder(tf.float32, shape=(None, 1))
-        self.actions_grads_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
 
-        # self.sess.run(tf.initialize_all_variables())
+        """self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.model = Actor_Critic(env, args)"""
 
-        self.saver = tf.train.Saver()
+        #self.sess.run(tf.initialize_all_variables())
+
+        #self.saver = tf.train.Saver()
 
     def load_model(self):
-        # self.saver = tf.train.import_meta_graph('./checkpoints/left_1999_model.ckpt.meta')
-        self.saver.restore(self.sess, "./checkpoints/left_1999_model.ckpt")
+        graph = tf.get_default_graph()
+        print(graph.get_operations())
+
+        #self.saver = tf.train.import_meta_graph('./checkpoints/left_999_model.ckpt-999.meta')
+        self.saver.restore(self.sess, "./checkpoints/left_99_model.ckpt")
         print("Load successful ! ")
+        #graph = tf.get_default_graph()
+        #print(graph.get_operations())
 
     def visualisation(self):
-        for i_episode in range(10):
-            state = self.env.reset(obs_as_dict=False)
-            state = np.asarray(state)
-            self.noise.reset()
-            one_episode_score = 0
+        tf.reset_default_graph()
+        config = tf.ConfigProto(allow_soft_placement=True)
+        config.gpu_options.allow_growth = True
+        with tf.Session(config=config) as sess:
+            self.model = Actor_Critic(env, args)
+            #print(self.graph.get_operations())
+            saver = tf.train.Saver()
+            saver.restore(sess, "./checkpoints/left_4999.ckpt")
+            print("Load successful ! ")
+            #self.model = Actor_Critic(env, args)
 
-            for i_step in itertools.count():
-                action = self.sess.run(self.model.Actor.output, feed_dict={
-                    self.model.states_ph: np.expand_dims(state, 0)
-                })[0]
+            #load by saved_model
+            """signature_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
+            input_key = 'x_input'
+            output_key = 'y_output'
 
-                # execute action action_with_noise and observe reward r_t and s_t+1
-                next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
+            export_path = './checkpoints'
+            meta_graph_def = tf.saved_model.loader.load(
+                sess,
+                [tf.saved_model.tag_constants.SERVING],
+                export_path)
+            signature = meta_graph_def.signature_def
 
-                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+            x_tensor_name = signature[signature_key].inputs[input_key].name
+            y_tensor_name = signature[signature_key].outputs[output_key].name
 
-                next_state = np.asarray(next_state)
-                state = np.copy(next_state)
+            x = sess.graph.get_tensor_by_name(x_tensor_name)
+            y = sess.graph.get_tensor_by_name(y_tensor_name)"""
 
-                print("Time step {} test {} =>>>>>>> reward {} :".format(i_step, i_episode, reward))
-                one_episode_score += reward
+            for i_episode in range(10):
+                state = self.env.reset(obs_as_dict=False)
+                state = np.asarray(state)
+                self.noise.reset()
+                one_episode_score = 0
 
-                if done or i_step == 50000:
-                    print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
-                    break
+                for i_step in itertools.count():
+                    action = sess.run(self.model.Actor.output, feed_dict={
+                        self.model.states_ph: np.expand_dims(state, 0)
+                    })[0]
 
+                    # execute action action_with_noise and observe reward r_t and s_t+1
+                    next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
+
+                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+
+                    next_state = np.asarray(next_state)
+                    state = np.copy(next_state)
+
+                    print("Time step {} test {} =>>>>>>> reward {} ".format(i_step, i_episode, reward))
+                    one_episode_score += reward
+
+                    if done or i_step == 50000:
+                        print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
+                        break
+            sess.close()
 
 if __name__ == '__main__':
     args = arg_parser()
     env = L2M2019Env(visualize=True)
     # Create session
-    config = tf.ConfigProto(allow_soft_placement=True)
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    # tf.reset_default_graph()
-    model = Actor_Critic(env, args)
-    trainer = Trainer(model, env, sess, args)
-    trainer.load_model()
+
+    trainer = Trainer(env, args)
+    #trainer.load_model()
     trainer.visualisation()
     print("======= Training Completed =======\n")

@@ -51,7 +51,7 @@ class ActorNetwork:
         self.states = states
         with tf.variable_scope(self.scope):
             self.input_state = tf.layers.batch_normalization(self.states, momentum=0.9,fused=True,
-                                                             training=self.is_training)
+                                                             training=self.is_training, name = "actor_batch_input")
             with tf.variable_scope('dense1'):
                 self.dense1_mlp = tf.layers.dense(self.input_state, 400,
                                                   kernel_initializer=tf.random_uniform_initializer(
@@ -63,22 +63,23 @@ class ActorNetwork:
                                                   )
 
                 self.dense1_batchnorm = tf.layers.batch_normalization(self.dense1_mlp,fused=True, training=self.is_training)
-                self.dense1 = tf.nn.relu(self.dense1_batchnorm)
+                self.dense1 = tf.nn.relu(self.dense1_batchnorm,name = "actor_dense1")
             with tf.variable_scope('denes2'):
                 self.dense2_mlp = tf.layers.dense(self.dense1, 300,
                                                   kernel_initializer=tf.random_uniform_initializer(
                                                       (-1 / tf.sqrt(tf.to_float(400))), 1 / tf.sqrt(tf.to_float(400))),
                                                   bias_initializer=tf.random_uniform_initializer(
-                                                      (-1 / tf.sqrt(tf.to_float(400))), 1 / tf.sqrt(tf.to_float(400))))
+                                                      (-1 / tf.sqrt(tf.to_float(400))), 1 / tf.sqrt(tf.to_float(400)))
+                                                  )
                 self.dense2_batchnorm = tf.layers.batch_normalization(self.dense2_mlp,fused=True, training=self.is_training)
-                self.dense2 = tf.nn.relu(self.dense2_batchnorm)
+                self.dense2 = tf.nn.relu(self.dense2_batchnorm, name = "actor_dense2")
             with tf.variable_scope('output'):
                 self.output_mlp = tf.layers.dense(self.dense2, self.env.action_space.shape[0],
                                 kernel_initializer=tf.random_uniform_initializer(-1*0.003, 0.003),
                                 bias_initializer=tf.random_uniform_initializer(-0.003, 0.003))
                 self.output_tanh = tf.nn.tanh(self.output_mlp)
 
-                self.output = tf.add(tf.multiply(tf.to_float(1/2), self.output_tanh), tf.to_float(1/2))
+                self.output = tf.add(tf.multiply(tf.to_float(1/2), self.output_tanh), tf.to_float(1/2), name = "actor_output")
 
                 self.network_params = tf.trainable_variables(scope = self.scope)
 

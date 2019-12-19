@@ -101,10 +101,7 @@ class Actor_Critic:
     """
 
 class Trainer():
-    def __init__(self, model, env, sess, args):
-        self.model = model
-        self.sess = sess
-        directions = {"left" : np.pi/2, "right" : -np.pi/2, "forward" : 1}
+    def __init__(self, env,  args):
         self.direction = args.direction
         self.env = env
         self.num_episodes = args.episodes
@@ -114,46 +111,32 @@ class Trainer():
         self.count_exp_replay = 0
         self.train_iteration = 0
         self.tau = args.TAU
+        """config = tf.ConfigProto(allow_soft_placement=True)
+        config.gpu_options.allow_growth = True
+        self.sess = tf.Session(config=config)
+        """
+        """self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.model = Actor_Critic(env, args)
+            self.target_Q_ph = tf.placeholder(tf.float32, shape=(None, 1))
+            self.actions_grads_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
+            # train operation
+            self.actor_train_ops = self.model.Actor.train_step(self.actions_grads_ph)
+            self.critic_train_ops = self.model.Critic.train_step(self.target_Q_ph)
+            # update operation
+            self.update_critic_target = self.model.update_target_network(self.model.Critic.network_params,
+                                                                         self.model.Critic_target.network_params,
+                                                                         self.tau)
+            self.update_actor_target = self.model.update_target_network(self.model.Actor.network_params,
+                                                                        self.model.Actor_target.network_params,
+                                                                        self.tau)"""
         self.tools = Tools()
-        self.saver = tf.train.Saver()
-        self.target_Q_ph = tf.placeholder(tf.float32, shape=(None,1))
-        self.actions_grads_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
-
-        #train operation
-        self.actor_train_ops = self.model.Actor.train_step(self.actions_grads_ph)
-        self.critic_train_ops = self.model.Critic.train_step(self.target_Q_ph)
-
-        #update operation
-        self.update_critic_target = self.model.update_target_network(self.model.Critic.network_params,
-                                                                     self.model.Critic_target.network_params, self.tau)
-        self.update_actor_target = self.model.update_target_network(self.model.Actor.network_params,
-                                                                    self.model.Actor_target.network_params, self.tau)
 
 
-        self.sess.run(tf.initialize_all_variables())
 
-        #init target networks by copying weights from actor and critic network
-        self.sess.run(self.model.update_target_network(self.model.Critic.network_params,self.model.Critic_target.network_params))
-        self.sess.run(self.model.update_target_network(self.model.Actor.network_params, self.model.Actor_target.network_params))
-
-        # reward summary for tensorboard
-        self.tf_reward = tf.Variable(0.0, trainable=False, name='Reward_per_episode')
-        self.tf_reward_summary = tf.summary.scalar("Reward by episode", self.tf_reward)
-
-        # time
-        self.tf_time = tf.Variable(0.0, trainable=False, name='Time_per_episode')
-        self.tf_time_summary = tf.summary.scalar("Time per episode", self.tf_time)
-
-        # step
-        self.tf_step = tf.Variable(0.0, trainable=False, name='Step_per_episode')
-        self.tf_step_summary = tf.summary.scalar("Step per episode", self.tf_step)
-
-        # writer
-        self.writer = tf.summary.FileWriter('./graphs', self.sess.graph)
-
-    def saveWeights(self, prefixe, i_episode):
+    """def saveWeights(self, prefixe, sess):
         path = prefixe + "model.ckpt"
-        save = self.saver.save(self.sess, path, global_step=i_episode)
+        save = self.saver.save(sess, path)"""
 
     def tryLoadWeights(self):
         print("Load weights \n")
@@ -201,93 +184,220 @@ class Trainer():
             if terminal:
                 self.env.reset()
 
-    def DDPG(self, model_name_prefix):
-        scores = []
-        for i_episode in range(self.episode_start, self.num_episodes):
-            start = time.time()
-            one_episode_score = 0
+    def DDPG(self):
 
-            # write log of training
-            name = "./log/training.txt"
-            with open(name, 'a') as f:
-                f.write("Episode {}/{} \n".format(i_episode + 1, self.num_episodes))
-            f.close()
+        tf.reset_default_graph()
+        config = tf.ConfigProto(allow_soft_placement=True)
+        config.gpu_options.allow_growth = True
+        with tf.Session(config=config) as sess:
+            self.model = Actor_Critic(env, args)
+            self.target_Q_ph = tf.placeholder(tf.float32, shape=(None, 1))
+            self.actions_grads_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
+            # train operation
+            self.actor_train_ops = self.model.Actor.train_step(self.actions_grads_ph)
+            self.critic_train_ops = self.model.Critic.train_step(self.target_Q_ph)
+            # update operation
+            self.update_critic_target = self.model.update_target_network(self.model.Critic.network_params,
+                                                                         self.model.Critic_target.network_params,
+                                                                         self.tau)
+            self.update_actor_target = self.model.update_target_network(self.model.Actor.network_params,
+                                                                        self.model.Actor_target.network_params,
+                                                                        self.tau)
+            # reward summary for tensorboard
+            self.tf_reward = tf.Variable(0.0, trainable=False, name='Reward_per_episode')
+            self.tf_reward_summary = tf.summary.scalar("Reward by episode", self.tf_reward)
+            # time
+            self.tf_time = tf.Variable(0.0, trainable=False, name='Time_per_episode')
+            self.tf_time_summary = tf.summary.scalar("Time per episode", self.tf_time)
+            # step
+            self.tf_step = tf.Variable(0.0, trainable=False, name='Step_per_episode')
+            self.tf_step_summary = tf.summary.scalar("Step per episode", self.tf_step)
+            # writer
+            self.writer = tf.summary.FileWriter('./graphs', sess.graph)
+            sess.run(tf.initialize_all_variables())
+            # init target networks by copying weights from actor and critic network
+            sess.run(
+                self.model.update_target_network(self.model.Critic.network_params, self.model.Critic_target.network_params))
+            sess.run(
+                self.model.update_target_network(self.model.Actor.network_params, self.model.Actor_target.network_params))
+            #save by saver
+            saver = tf.train.Saver()
+            #save by saved_model
+            """export_path = './checkpoints'
+            builder = tf.saved_model.builder.SavedModelBuilder(export_path)
+            tensor_info_x = tf.saved_model.utils.build_tensor_info(self.model.Actor.states)
+            tensor_info_y = tf.saved_model.utils.build_tensor_info(self.model.Actor.output)
+            prediction_signature = (
+                tf.saved_model.signature_def_utils.build_signature_def(
+                    inputs={'x_input': tensor_info_x},
+                    outputs={'y_output': tensor_info_y},
+                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+            builder.add_meta_graph_and_variables(
+                sess, [tf.saved_model.tag_constants.SERVING],
+                signature_def_map={
+                    tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+                        prediction_signature
+                },
+            )"""
 
-            if (i_episode + 1) % 100 == 0:
-                avg = np.mean(np.asarray(scores))
-                if (i_episode + 1) % 1000 == 0:
-                    #self.model.Actor.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
-                    #self.model.Critic.save(prefixe=prefixe + "checkpoint_avgScore_{}".format(avg))
-                    self.saveWeights("./checkpoints/{}_{}_".format(args.direction, i_episode), i_episode)
-                    self.noise_decay *= 0.8
-                print(
-                    "Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode + 1, self.num_episodes,
-                                                                                       avg))
-                scores.clear()
+            scores = []
+            for i_episode in range(self.episode_start, self.num_episodes):
+                start = time.time()
+                one_episode_score = 0
 
-            # reset env
-            state = self.env.reset(obs_as_dict=False)
-            state = np.asarray(state)
-            self.noise.reset()
-
-            for i_step in itertools.count():
-                action = self.sess.run(self.model.Actor.output, feed_dict={
-                    self.model.states_ph : np.expand_dims(state,0),
-                    self.model.is_training_ph : False
-                })[0]
-                action += self.noise() * self.noise_decay
-                # execute action action_with_noise and observe reward r_t and s_t+1
-                next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
-
-                reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                # write log of training
                 name = "./log/training.txt"
                 with open(name, 'a') as f:
-                    f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
+                    f.write("Episode {}/{} \n".format(i_episode + 1, self.num_episodes))
                 f.close()
-                next_state = np.asarray(next_state)
-                self.model.memory_buffer.add(state, action, reward, next_state, done)
 
-                one_episode_score += reward
-                state = np.copy(next_state)
-                self.experience_replay()
+                if (i_episode + 1) % 100 == 0:
+                    avg = np.mean(np.asarray(scores))
+                    self.noise_decay *= 0.95
+                    if (i_episode + 1) % 500 == 0:
+                        #self.saveWeights("./checkpoints/{}_{}_".format(args.direction, i_episode), sess)
+                        save = saver.save(sess, "./checkpoints/left_{}.ckpt".format(i_episode))
+                        print(save)
 
-                if done or i_step == 50000:
-                    end = time.time()
-                    print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
-                    scores.append(one_episode_score)
-                    # write reward for tensorboard
-                    summary = self.sess.run(self.tf_reward_summary, feed_dict={
-                        self.tf_reward: one_episode_score
-                    })
-                    # add summary to writer
-                    self.writer.add_summary(summary, i_episode)
-                    # timer
-                    summary = self.sess.run(self.tf_time_summary, feed_dict={
-                        self.tf_time: end - start
-                    })
-                    self.writer.add_summary(summary, i_episode)
-                    # timer
-                    summary = self.sess.run(self.tf_step_summary, feed_dict={
-                        self.tf_step: i_step
-                    })
-                    self.writer.add_summary(summary, i_episode)
-                    break
-            name = "./log/training.txt"
-            with open(name, 'a') as f:
-                f.write("Total score : {} \n".format(one_episode_score))
-            f.close()
+                    print(
+                        "Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode + 1, self.num_episodes,
+                                                                                           avg))
+                    scores.clear()
+                # reset env
+                state = self.env.reset(obs_as_dict=False)
+                state = np.asarray(state)
+                self.noise.reset()
 
+                for i_step in itertools.count():
+                    action = sess.run(self.model.Actor.output, feed_dict={
+                        self.model.states_ph : np.expand_dims(state,0),
+                        self.model.is_training_ph : False
+                    })[0]
+                    action += self.noise() * self.noise_decay
+                    # execute action action_with_noise and observe reward r_t and s_t+1
+                    next_state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
+                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+
+                    name = "./log/training.txt"
+                    with open(name, 'a') as f:
+                        f.write("Episode {}/{} == Step : {} =>>> Reward {} \n".format(i_episode + 1, self.num_episodes, i_step, reward))
+                    f.close()
+
+                    next_state = np.asarray(next_state)
+                    self.model.memory_buffer.add(state, action, reward, next_state, terminal)
+
+                    one_episode_score += reward
+                    state = np.copy(next_state)
+                    #self.experience_replay()
+
+                    if self.model.memory_buffer.count() >= self.model.batch_size * 10:
+                        batch, w_id, eid = self.model.memory_buffer.getBatch(self.model.batch_size)
+
+                        batch_state = np.zeros((self.model.batch_size, self.env.observation_space.shape[0]))
+                        batch_reward = np.zeros((self.model.batch_size,))
+                        batch_action = np.zeros((self.model.batch_size, self.env.action_space.shape[0]))
+                        batch_next_state = np.zeros((self.model.batch_size, self.env.observation_space.shape[0]))
+                        batch_done = np.zeros((self.model.batch_size,))
+                        e_id = eid
+
+                        for k, (s0, a, r, s1, done) in enumerate(batch):
+                            batch_state[k] = s0
+                            batch_reward[k] = r
+                            batch_action[k] = a
+                            batch_next_state[k] = s1
+                            batch_done[k] = done
+                        batch_done = batch_done.astype(int)
+
+                        future_action = sess.run(self.model.Actor_target.output, feed_dict={
+                            self.model.states_ph: batch_next_state
+                        })
+                        future_Q = sess.run(self.model.Critic_target.output, feed_dict={
+                            self.model.states_ph: batch_next_state,
+                            self.model.actions_ph: future_action
+                        })[:, 0]
+
+                        future_Q[batch_done] = 0
+                        targets = batch_reward + (future_Q * self.model.discount)
+                        # train Critic
+                        sess.run(self.critic_train_ops, feed_dict={
+                            self.model.states_ph: batch_state,
+                            self.model.actions_ph: batch_action,
+                            self.target_Q_ph: np.expand_dims(targets, 1)
+                        })
+
+                        # train Actor
+                        actor_actions = sess.run(self.model.Actor.output, feed_dict={
+                            self.model.states_ph: batch_state
+                        })
+                        action_grads = sess.run(self.model.Critic.action_grads, feed_dict={
+                            self.model.states_ph: batch_state,
+                            self.model.actions_ph: actor_actions
+                        })
+                        sess.run(self.actor_train_ops, feed_dict={
+                            self.model.states_ph: batch_state,
+                            self.actions_grads_ph: action_grads[0]
+                        })
+                        # update target
+                        sess.run(self.update_critic_target)
+                        sess.run(self.update_actor_target)
+
+                        # calcul TD error
+                        old_Q_value = sess.run(self.model.Critic.output, feed_dict={
+                            self.model.states_ph: batch_state,
+                            self.model.actions_ph: batch_action
+                        })[:, 0]
+                        future_action = future_action = sess.run(self.model.Actor_target.output, feed_dict={
+                            self.model.states_ph: batch_next_state
+                        })
+                        future_Q_value = sess.run(self.model.Critic_target.output, feed_dict={
+                            self.model.states_ph: batch_next_state,
+                            self.model.actions_ph: future_action
+                        })[:, 0]
+                        error = np.absolute(batch_reward + self.model.discount * (future_Q_value - old_Q_value))
+
+                        # update priority
+                        self.model.memory_buffer.update_priority(e_id, error)
+                        self.train_iteration += 1
+                        if self.train_iteration % 100 == 0:
+                            self.model.memory_buffer.rebalance()
+
+                    if terminal or i_step == 50000:
+                        end = time.time()
+                        print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
+                        scores.append(one_episode_score)
+                        # write reward for tensorboard
+                        summary = sess.run(self.tf_reward_summary, feed_dict={
+                            self.tf_reward: one_episode_score
+                        })
+                        # add summary to writer
+                        self.writer.add_summary(summary, i_episode)
+                        # timer
+                        summary = sess.run(self.tf_time_summary, feed_dict={
+                            self.tf_time: end - start
+                        })
+                        self.writer.add_summary(summary, i_episode)
+                        # timer
+                        summary = sess.run(self.tf_step_summary, feed_dict={
+                            self.tf_step: i_step
+                        })
+                        self.writer.add_summary(summary, i_episode)
+                        break
+                name = "./log/training.txt"
+                with open(name, 'a') as f:
+                    f.write("Total score : {} \n".format(one_episode_score))
+                f.close()
+            sess.close()
         # save information to log
-        name = "./log/data.txt"
+        """name = "./log/data.txt"
         with open(name, 'a') as f:
             f.write(" ".join((self.num_episodes, model_name_prefix, self.noise, self.epsilon)))
         f.close()
-        print("Log saved successfully! \n")
+        print("Log saved successfully! \n")"""
         # save model
-        self.saveWeights("./models/{}_{}_".format(args.direction, args.episodes), args.episodes)
-        print("Models saved successfully ! \n")
-
-    def experience_replay(self):
+        """self.saveWeights("./models/{}_{}_".format(args.direction, args.episodes), args.episodes)
+            print("Models saved successfully ! \n")
+"""
+    """def experience_replay(self):
         #batch_state, batch_action, batch_reward, batch_next_state, batch_done = self.model.memory_buffer.getMinibatch()
 
         if self.model.memory_buffer.count() < self.model.batch_size * 5:
@@ -306,7 +416,6 @@ class Trainer():
             batch_reward[k] = r
             batch_action[k] = a
             batch_next_state[k] = s1
-
             batch_done[k] = done
         batch_done = batch_done.astype(int)
 
@@ -362,20 +471,12 @@ class Trainer():
         self.train_iteration += 1
         if self.train_iteration % 100 == 0:
             self.model.memory_buffer.rebalance()
-
+"""
 if __name__ == '__main__':
     args = arg_parser()
     env = L2M2019Env(visualize=False)
     # Create session
-    config = tf.ConfigProto(allow_soft_placement=True)
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    model = Actor_Critic(env, args)
     print("======= Start Training =======\n")
-    trainer = Trainer(model, env, sess, args)
-    if trainer.tryLoadWeights() == 1:
-        print("Play to initiate buffer !")
-        #trainer.play_to_init_buffer()
-
-    trainer.DDPG(model_name_prefix="./models/" + args.direction)
+    trainer = Trainer(env, args)
+    trainer.DDPG()
     print("======= Training Completed =======\n")
