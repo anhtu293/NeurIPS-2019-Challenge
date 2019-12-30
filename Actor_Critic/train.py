@@ -222,23 +222,6 @@ class Trainer():
                 self.model.update_target_network(self.model.Actor.network_params, self.model.Actor_target.network_params))
             #save by saver
             saver = tf.train.Saver()
-            #save by saved_model
-            """export_path = './checkpoints'
-            builder = tf.saved_model.builder.SavedModelBuilder(export_path)
-            tensor_info_x = tf.saved_model.utils.build_tensor_info(self.model.Actor.states)
-            tensor_info_y = tf.saved_model.utils.build_tensor_info(self.model.Actor.output)
-            prediction_signature = (
-                tf.saved_model.signature_def_utils.build_signature_def(
-                    inputs={'x_input': tensor_info_x},
-                    outputs={'y_output': tensor_info_y},
-                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
-            builder.add_meta_graph_and_variables(
-                sess, [tf.saved_model.tag_constants.SERVING],
-                signature_def_map={
-                    tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
-                        prediction_signature
-                },
-            )"""
 
             scores = []
             for i_episode in range(self.episode_start, self.num_episodes):
@@ -258,7 +241,6 @@ class Trainer():
                         #self.saveWeights("./checkpoints/{}_{}_".format(args.direction, i_episode), sess)
                         save = saver.save(sess, "./checkpoints/left_{}.ckpt".format(i_episode))
                         print(save)
-
                     print(
                         "Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode + 1, self.num_episodes,
                                                                                            avg))
@@ -267,16 +249,24 @@ class Trainer():
                 state = self.env.reset(obs_as_dict=False)
                 state = np.asarray(state)
                 self.noise.reset()
+                angle_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
 
                 for i_step in itertools.count():
                     action = sess.run(self.model.Actor.output, feed_dict={
                         self.model.states_ph : np.expand_dims(state,0),
                         self.model.is_training_ph : False
                     })[0]
-                    action += self.noise() * self.noise_decay
+                    if i_step % 5 == 0:
+                        action += self.noise() * self.noise_decay
+
                     # execute action action_with_noise and observe reward r_t and s_t+1
                     next_state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
-                    reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                    #reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
+                    angle_next_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
+                    reward = -(angle_next_state - angle_state)*10
+                    if terminal:
+                        reward += (np.pi - angle_next_state)*10
+                    angle_state = angle_next_state
 
                     name = "./log/training.txt"
                     with open(name, 'a') as f:

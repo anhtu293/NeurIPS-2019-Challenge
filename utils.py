@@ -60,6 +60,7 @@ class Tools:
         direction_to_fall = np.asarray([center_2_feet])
         penalty = cosine_similarity(direction_real, direction_to_fall)[0][0]
         #penalty = np.pi - np.arccos(cosine)
+        #penalty = np.arccos(penalty)
         return penalty
 
 if __name__ == '__main__':

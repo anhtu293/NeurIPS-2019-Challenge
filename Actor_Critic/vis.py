@@ -1,53 +1,19 @@
-# coding=utf-8
-# *********************************************************
-# This is the class Actor_Critic for algorithmddpg actor_critic.
-# In this algorithm we use noise decay for exploration of agent.
-# Noise is created by Gaussian distribution.
-#
-# Proprieties :
-#    - env : environment used for training
-#    - sess: tensorflow session
-#    - memory_buffer : memory buffer for experience replay
-#    - Actor : actor network
-#    - Critic : critic network
-#
-# Methods :
-# 1) update_target : update the weights of target networks
-#
-# 2) train : train actor network and critic network
-# **********************************************************
-
 import sys
-
 sys.path.append("../")
-import gym
-import sys
+
 from osim.env import L2M2019Env
 import numpy as np
-from matplotlib import pyplot as plt
 import tensorflow as tf
-import random
 from actor import ActorNetwork
-from critic import CriticNetwork
+import itertools
+from Actor_Critic.train import Actor_Critic
+import argparse
 from ou_noise import OUNoise
 from utils import Tools
-import argparse
-import itertools
-import time
-from replay_buffer import ReplayBuffer
 
-"""
-TAU = 0.001
-LR = 0.0001
-BUFFER_SIZE = 1000000
-BATCH_SIZE = 64
-DISCOUNT = 0.99
-NOISE = 0.5
-NOISE_DECAY = 0.99
-EPSILON = 1
-EPSILON_DECAY = 0.99
-"""
-
+import json
+import plotly.graph_objects as go
+import os
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -64,110 +30,66 @@ def arg_parser():
     args = parser.parse_args()
     return args
 
-
-class Actor_Critic:
-    def __init__(self, env, args):
+class Visualisation:
+    def __init__(self, env, arg, model_path, save_data_path):
         self.env = env
-        self.memory_buffer = ReplayBuffer(args.buffer_size)
-        self.learning_rate_actor = args.lr_actor
-        self.learning_rate_critic = args.lr_critic
-        self.tau = args.TAU
-        self.batch_size = args.batch_size
-        self.discount = args.discount
-        self.states_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.observation_space.shape))
-        self.actions_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
-        self.is_training_ph = tf.placeholder_with_default(True, shape=None)
-        self.Actor = ActorNetwork(env=self.env, states=self.states_ph, LR=self.learning_rate_actor, TAU=self.tau,
-                                  discount=self.discount, scope="actor_main", batch_size=self.batch_size,
-                                  is_training=False)
-
-        """self.Critic = CriticNetwork(env=self.env, states=self.states_ph, actions=self.actions_ph,
-                                    LR=self.learning_rate_critic,
-                                    TAU=self.tau, discount=self.discount, scope="critic_main",
-                                    batch_size=self.batch_size,
-                                    is_training=self.is_training_ph)
-        self.Actor_target = ActorNetwork(env=self.env, states=self.states_ph, LR=self.learning_rate_actor, TAU=self.tau,
-                                         discount=self.discount, scope="actor_target", batch_size=self.batch_size,
-                                         is_training=self.is_training_ph)
-        self.Critic_target = CriticNetwork(env=self.env, states=self.states_ph, actions=self.actions_ph,
-                                           LR=self.learning_rate_critic,
-                                           TAU=self.tau, discount=self.discount, scope="critic_target",
-                                           batch_size=self.batch_size, is_training=self.is_training_ph)"""
-
-
-class Trainer():
-    def __init__(self, env, args):
-        directions = {"left": np.pi / 2, "right": -np.pi / 2, "forward": 1}
-        self.direction = args.direction
-        self.env = env
-        self.num_episodes = args.episodes
-        self.episode_start = 0
+        self.arg = arg
+        self.model_path = model_path
+        self.save_data_path = save_data_path
         self.noise = OUNoise(mu=np.zeros(self.env.action_space.shape))
-        self.noise_decay = args.noise_decay
-        self.count_exp_replay = 0
-        self.train_iteration = 0
-        self.tau = args.TAU
         self.tools = Tools()
+        self.direction = arg.direction
 
-        """self.graph = tf.Graph()
-        with self.graph.as_default():
-            self.model = Actor_Critic(env, args)"""
 
-        #self.sess.run(tf.initialize_all_variables())
+    def muscle_visualisation(self, path):
+        cwd = os.getcwd()  # Get the current working directory (cwd)
+        files = os.listdir(cwd)  # Get all the files in that directory
+        print("Files in %r: %s" % (cwd, files))
 
-        #self.saver = tf.train.Saver()
+        with open(path) as json_file:
+            fig = go.Figure()
+            dataset = json.load(json_file)
+            a = dataset["episode0"]
+            a = np.array(a)
+            a = np.transpose(a)
+            fig.add_trace(go.Heatmap(
+                z=a,
+                colorscale=[[1, "rgb(255,69,0)"],
+                            [0, "rgb(255,255,255)"]]
+            ))
+            fig.show()
 
-    def load_model(self):
-        graph = tf.get_default_graph()
-        print(graph.get_operations())
+    def articulation_visualisation(self, path):
+        return 0
 
-        #self.saver = tf.train.import_meta_graph('./checkpoints/left_999_model.ckpt-999.meta')
-        self.saver.restore(self.sess, "./checkpoints/left_99_model.ckpt")
-        print("Load successful ! ")
-        #graph = tf.get_default_graph()
-        #print(graph.get_operations())
-
-    def visualisation(self):
+    def load_model(self, env, args):
         tf.reset_default_graph()
         config = tf.ConfigProto(allow_soft_placement=True)
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             self.model = Actor_Critic(env, args)
-            #print(self.graph.get_operations())
+            # print(self.graph.get_operations())
+            #saver = tf.train.import_meta_graph("../Actor_Critic/checkpoints/forward_9999_model.ckpt.meta")
             saver = tf.train.Saver()
-            saver.restore(sess, "./checkpoints/left_4999.ckpt")
+            saver.restore(sess, "./checkpoints/left_3999.ckpt")
             print("Load successful ! ")
-            #self.model = Actor_Critic(env, args)
 
-            #load by saved_model
-            """signature_key = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
-            input_key = 'x_input'
-            output_key = 'y_output'
-
-            export_path = './checkpoints'
-            meta_graph_def = tf.saved_model.loader.load(
-                sess,
-                [tf.saved_model.tag_constants.SERVING],
-                export_path)
-            signature = meta_graph_def.signature_def
-
-            x_tensor_name = signature[signature_key].inputs[input_key].name
-            y_tensor_name = signature[signature_key].outputs[output_key].name
-
-            x = sess.graph.get_tensor_by_name(x_tensor_name)
-            y = sess.graph.get_tensor_by_name(y_tensor_name)"""
-
-            for i_episode in range(10):
+            for i_episode in range(1):
                 state = self.env.reset(obs_as_dict=False)
                 state = np.asarray(state)
                 self.noise.reset()
                 one_episode_score = 0
-
+                actions = []
                 for i_step in itertools.count():
-                    action = sess.run(self.model.Actor.output, feed_dict={
-                        self.model.states_ph: np.expand_dims(state, 0)
-                    })[0]
-
+                    if i_step % 3 == 0:
+                        action = sess.run(self.model.Actor.output, feed_dict={
+                            self.model.states_ph: np.expand_dims(state, 0)
+                        })[0]
+                    else:
+                        action = np.zeros(self.env.action_space.shape[0])
+                    print(action)
+                    action = action.tolist()
+                    actions.append(action)
                     # execute action action_with_noise and observe reward r_t and s_t+1
                     next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
 
@@ -182,14 +104,21 @@ class Trainer():
                     if done or i_step == 50000:
                         print("Episode {} =>>>>> Score {}".format(i_episode + 1, one_episode_score))
                         break
+                actions = {"episode" + str(i_episode): actions}
+                with open(self.save_data_path + "left_3999_model_decalage.json", 'w') as f:
+                    json.dump(actions, f)
             sess.close()
 
+    def run_model(self):
+        return 0
+
 if __name__ == '__main__':
+
     args = arg_parser()
     env = L2M2019Env(visualize=True)
-    # Create session
+    visualiser = Visualisation(env, args, "./checkpoints", "./checkpoints/")
+    visualiser.load_model(env,args)
 
-    trainer = Trainer(env, args)
-    #trainer.load_model()
-    trainer.visualisation()
-    print("======= Training Completed =======\n")
+
+    #visualiser.muscle_visualisation('../Actor_Critic/log/action.json')
+    visualiser.muscle_visualisation('./checkpoints/left_3999_model_decalage.json')
