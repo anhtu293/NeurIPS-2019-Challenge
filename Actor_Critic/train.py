@@ -71,7 +71,7 @@ class Actor_Critic:
         self.tau = args.TAU
         self.batch_size = args.batch_size
         self.discount = args.discount
-        self.states_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.observation_space.shape))
+        self.states_ph = tf.placeholder(tf.float32, shape=(None,1))
         self.actions_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
         self.is_training_ph = tf.placeholder_with_default(True, shape=None)
         self.Actor = ActorNetwork(env=self.env, states=self.states_ph, LR = self.learning_rate_actor, TAU = self.tau,
@@ -266,7 +266,7 @@ class Trainer():
                     reward = -(angle_next_state - angle_state)*10
                     if terminal:
                         reward += (np.pi - angle_next_state)*10
-                    angle_state = angle_next_state
+
 
                     name = "./log/training.txt"
                     with open(name, 'a') as f:
@@ -274,7 +274,8 @@ class Trainer():
                     f.close()
 
                     next_state = np.asarray(next_state)
-                    self.model.memory_buffer.add(state, action, reward, next_state, terminal)
+                    self.model.memory_buffer.add(angle_state, action, reward, angle_next_state, terminal)
+                    angle_state = angle_next_state
 
                     one_episode_score += reward
                     state = np.copy(next_state)
