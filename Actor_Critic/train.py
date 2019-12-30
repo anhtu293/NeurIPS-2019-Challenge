@@ -253,7 +253,7 @@ class Trainer():
 
                 for i_step in itertools.count():
                     action = sess.run(self.model.Actor.output, feed_dict={
-                        self.model.states_ph : np.expand_dims(state,0),
+                        self.model.states_ph : np.expand_dims(np.array([angle_state]),0),
                         self.model.is_training_ph : False
                     })[0]
                     if i_step % 5 == 0:
@@ -284,10 +284,10 @@ class Trainer():
                     if self.model.memory_buffer.count() >= self.model.batch_size * 10:
                         batch, w_id, eid = self.model.memory_buffer.getBatch(self.model.batch_size)
 
-                        batch_state = np.zeros((self.model.batch_size, self.env.observation_space.shape[0]))
+                        batch_state = np.zeros((self.model.batch_size, 1))
                         batch_reward = np.zeros((self.model.batch_size,))
                         batch_action = np.zeros((self.model.batch_size, self.env.action_space.shape[0]))
-                        batch_next_state = np.zeros((self.model.batch_size, self.env.observation_space.shape[0]))
+                        batch_next_state = np.zeros((self.model.batch_size, 1))
                         batch_done = np.zeros((self.model.batch_size,))
                         e_id = eid
 
