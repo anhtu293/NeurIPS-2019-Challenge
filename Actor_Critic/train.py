@@ -35,17 +35,7 @@ import argparse
 import itertools
 import time
 from replay_buffer import ReplayBuffer
-"""
-TAU = 0.001
-LR = 0.0001
-BUFFER_SIZE = 1000000
-BATCH_SIZE = 64
-DISCOUNT = 0.99
-NOISE = 0.5
-NOISE_DECAY = 0.99
-EPSILON = 1
-EPSILON_DECAY = 0.99
-"""
+
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -93,12 +83,6 @@ class Actor_Critic:
             op_holder.append(to_var.assign((tf.multiply(from_var, tau) + tf.multiply(to_var, 1. - tau))))
 
         return op_holder
-    """
-    def save(self, prefixe):
-        self.Actor.save(prefixe)
-        self.Critic.save(prefixe)
-        self.memory_buffer.save()
-    """
 
 class Trainer():
     def __init__(self, env,  args):
@@ -111,32 +95,7 @@ class Trainer():
         self.count_exp_replay = 0
         self.train_iteration = 0
         self.tau = args.TAU
-        """config = tf.ConfigProto(allow_soft_placement=True)
-        config.gpu_options.allow_growth = True
-        self.sess = tf.Session(config=config)
-        """
-        """self.graph = tf.Graph()
-        with self.graph.as_default():
-            self.model = Actor_Critic(env, args)
-            self.target_Q_ph = tf.placeholder(tf.float32, shape=(None, 1))
-            self.actions_grads_ph = tf.placeholder(tf.float32, shape=((None,) + self.env.action_space.shape))
-            # train operation
-            self.actor_train_ops = self.model.Actor.train_step(self.actions_grads_ph)
-            self.critic_train_ops = self.model.Critic.train_step(self.target_Q_ph)
-            # update operation
-            self.update_critic_target = self.model.update_target_network(self.model.Critic.network_params,
-                                                                         self.model.Critic_target.network_params,
-                                                                         self.tau)
-            self.update_actor_target = self.model.update_target_network(self.model.Actor.network_params,
-                                                                        self.model.Actor_target.network_params,
-                                                                        self.tau)"""
         self.tools = Tools()
-
-
-
-    """def saveWeights(self, prefixe, sess):
-        path = prefixe + "model.ckpt"
-        save = self.saver.save(sess, path)"""
 
     def tryLoadWeights(self):
         print("Load weights \n")
@@ -149,12 +108,7 @@ class Trainer():
             self.noise = noise
             self.epsilon = epsilon
             print("Log loaded !\n")
-            """
-            self.Actor.actor_model.load_weights(model_name_prefix + "_actor_model.h5")
-            self.Actor.actor_target.load_weights(model_name_prefix + "_actor_target.h5")
-            self.Critic.critic_model.load_weights(model_name_prefix + "_critic_model.h5")
-            self.Critic.critic_model.load_weights(model_name_prefix + "_critic_target.h5")
-            """
+
             self.saver.restore(self.sess, "./model/model.ckpt")
             print("Weights load successfully ! \n")
             self.memory_buffer.load()
@@ -256,17 +210,14 @@ class Trainer():
                         self.model.states_ph : np.expand_dims(np.array([angle_state]),0),
                         self.model.is_training_ph : False
                     })[0]
-                    if i_step % 5 == 0:
-                        action += self.noise() * self.noise_decay
+
+                    action += self.noise() * self.noise_decay
 
                     # execute action action_with_noise and observe reward r_t and s_t+1
                     next_state, reward, terminal, _ = self.env.step(action, obs_as_dict=False)
                     #reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
                     angle_next_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
-                    reward = -(angle_next_state - angle_state)*10
-                    if terminal:
-                        reward += (np.pi - angle_next_state)*10
-
+                    reward = np.cos(angle_next_state)
 
                     name = "./log/training.txt"
                     with open(name, 'a') as f:
@@ -378,16 +329,7 @@ class Trainer():
                     f.write("Total score : {} \n".format(one_episode_score))
                 f.close()
             sess.close()
-        # save information to log
-        """name = "./log/data.txt"
-        with open(name, 'a') as f:
-            f.write(" ".join((self.num_episodes, model_name_prefix, self.noise, self.epsilon)))
-        f.close()
-        print("Log saved successfully! \n")"""
-        # save model
-        """self.saveWeights("./models/{}_{}_".format(args.direction, args.episodes), args.episodes)
-            print("Models saved successfully ! \n")
-"""
+
     """def experience_replay(self):
         #batch_state, batch_action, batch_reward, batch_next_state, batch_done = self.model.memory_buffer.getMinibatch()
 

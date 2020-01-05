@@ -71,7 +71,7 @@ class Visualisation:
             # print(self.graph.get_operations())
             #saver = tf.train.import_meta_graph("../Actor_Critic/checkpoints/forward_9999_model.ckpt.meta")
             saver = tf.train.Saver()
-            saver.restore(sess, "./checkpoints/left_3999.ckpt")
+            saver.restore(sess, "./checkpoints/left_6999.ckpt")
             print("Load successful ! ")
 
             for i_episode in range(1):
@@ -80,13 +80,17 @@ class Visualisation:
                 self.noise.reset()
                 one_episode_score = 0
                 actions = []
+                angle_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
                 for i_step in itertools.count():
-                    if i_step % 3 == 0:
+                    """if i_step % 3 == 0:
                         action = sess.run(self.model.Actor.output, feed_dict={
-                            self.model.states_ph: np.expand_dims(state, 0)
+                            self.model.states_ph: np.expand_dims(np.array([angle_state]),0)
                         })[0]
                     else:
-                        action = np.zeros(self.env.action_space.shape[0])
+                        action = np.zeros(self.env.action_space.shape[0])"""
+                    action = sess.run(self.model.Actor.output, feed_dict={
+                        self.model.states_ph: np.expand_dims(np.array([angle_state]), 0)
+                    })[0]
                     print(action)
                     action = action.tolist()
                     actions.append(action)
@@ -97,6 +101,8 @@ class Visualisation:
 
                     next_state = np.asarray(next_state)
                     state = np.copy(next_state)
+                    angle_next_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
+                    angle_state = angle_next_state
 
                     print("Time step {} test {} =>>>>>>> reward {} ".format(i_step, i_episode, reward))
                     one_episode_score += reward
@@ -107,6 +113,7 @@ class Visualisation:
                 actions = {"episode" + str(i_episode): actions}
                 with open(self.save_data_path + "left_3999_model_decalage.json", 'w') as f:
                     json.dump(actions, f)
+
             sess.close()
 
     def run_model(self):
