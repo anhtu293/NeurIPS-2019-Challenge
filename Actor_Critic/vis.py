@@ -59,8 +59,39 @@ class Visualisation:
             ))
             fig.show()
 
+    # get the angles of three joints on each leg:
+    # return array of rhip, rknee, rankle, lhip, lknee, lankle
+    def get_angles(self, state_desc):
+        body_pos = state_desc["body_pos"]
+        angles = []
+        angles.append(body_pos["hip_r"])
+        angles.append(body_pos["knee_r"])
+        angles.append(body_pos["ankle_r"])
+        angles.append(body_pos["hip_l"])
+        angles.append(body_pos["knee_l"])
+        angles.append(body_pos["ankle_l"])
+        return angles
+
     def articulation_visualisation(self, path):
-        return 0
+        cwd = os.getcwd()  # Get the current working directory (cwd)
+        files = os.listdir(cwd)  # Get all the files in that directory
+        print("Files in %r: %s" % (cwd, files))
+        with open(path) as json_file:
+            fig = go.Figure()
+            step = itertools.count()
+            dataset = json.load(json_file)
+            # Add traces
+            fig.add_trace(go.Scatter(x=step, y=dataset[1][1],
+                                     mode='markers',
+                                     name='markers'))
+            fig.add_trace(go.Scatter(x=step, y=dataset[1][1],
+                                     mode='lines',
+                                     name='lines+markers'))
+            fig.add_trace(go.Scatter(x=step, y=dataset[1][1],
+                                     mode='lines',
+                                     name='lines'))
+
+            fig.show()
 
     def load_model(self, env, args):
         tf.reset_default_graph()
@@ -79,7 +110,8 @@ class Visualisation:
                 state = np.asarray(state)
                 self.noise.reset()
                 one_episode_score = 0
-                actions = []
+                muscles = []
+                angles = []
                 angle_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
                 for i_step in itertools.count():
                     """if i_step % 3 == 0:
@@ -91,14 +123,16 @@ class Visualisation:
                     action = sess.run(self.model.Actor.output, feed_dict={
                         self.model.states_ph: np.expand_dims(np.array([angle_state]), 0)
                     })[0]
-                    print(action)
-                    action = action.tolist()
-                    actions.append(action)
                     # execute action action_with_noise and observe reward r_t and s_t+1
                     next_state, reward, done, _ = self.env.step(action, obs_as_dict=False)
-
+                    state_desc = env.get_state_desc()
+                    muscles_desc = state_desc["muscles"]
+                    muscles_activation = []
+                    for muscle in muscles_desc:
+                        muscles_activation.append(muscles_desc.get(muscle)["activation"])
+                    muscles.append(muscles_activation)
+                    angles.append(self.get_angles(state_desc))
                     reward = self.tools.get_reward(self.direction, self.env.get_state_desc())
-
                     next_state = np.asarray(next_state)
                     state = np.copy(next_state)
                     angle_next_state = np.arccos(self.tools.get_reward(self.direction, self.env.get_state_desc()))
@@ -112,8 +146,9 @@ class Visualisation:
                         break
                 actions = {"episode" + str(i_episode): actions}
                 with open(self.save_data_path + "left_3999_model_decalage.json", 'w') as f:
-                    json.dump(actions, f)
-
+                    json.dump(muscles, f)
+                with open(self.save_data_path + "articulation.json", 'w') as f:
+                    json.dump(angles, f)
             sess.close()
 
     def run_model(self):
