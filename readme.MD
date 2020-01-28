@@ -61,7 +61,7 @@ to move to the direction we want it to fall each time step. If it can tend to th
 time step, we give it a reward, or else a penalization. 
 ![](./img/rf3_res.png)
 
-We got a interesting result : the model can fall about 47° in the direction we had chosen. We visualized the model and we 
+We got an interesting result : the model could fall about 47° in the direction we had chosen. We visualized the model and we 
 found that its behaviors were very similar to the one trained by second reward function. 
 
 ## 3. Result
