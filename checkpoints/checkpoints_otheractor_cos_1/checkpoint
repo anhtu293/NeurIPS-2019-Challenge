@@ -1,0 +1,6 @@
+model_checkpoint_path: "left_6999.ckpt"
+all_model_checkpoint_paths: "left_4999.ckpt"
+all_model_checkpoint_paths: "left_5499.ckpt"
+all_model_checkpoint_paths: "left_5999.ckpt"
+all_model_checkpoint_paths: "left_6499.ckpt"
+all_model_checkpoint_paths: "left_6999.ckpt"

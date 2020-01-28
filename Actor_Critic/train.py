@@ -27,14 +27,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 import tensorflow as tf
 import random
-from actor import ActorNetwork
-from critic import CriticNetwork
-from ou_noise import OUNoise
-from utils import Tools
+from src.actor import ActorNetwork
+from src.critic import CriticNetwork
+from src.ou_noise import OUNoise
+from src.utils import Tools
 import argparse
 import itertools
 import time
-from replay_buffer import ReplayBuffer
+from src.replay_buffer import ReplayBuffer
 
 
 def arg_parser():
