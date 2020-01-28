@@ -78,9 +78,26 @@ class Trainer():
         self.num_episodes = num_episodes
         self.episode_start = 0
         self.noise = NOISE
-        self.noise_decay = NOISE_DECAY
+        self.noise_decay = nth_root(self.num_episodes, 0.01 / self.noise)
         self.epsilon = EPSILON
-        self.epsilon_decay = EPSILON_DECAY
+        self.epsilon_decay = nth_root(self.num_episodes, 0.01 / self.epsilon)
+        self.count_exp_replay = 0
+        # reward summary for tensorboard
+        self.tf_reward = tf.placeholder(tf.float32, shape=None, name='reward_summary')
+        self.tf_reward_summary = tf.summary.scalar("Reward by episode", self.tf_reward)
+        # Loss of critic summary for tensorboard
+        self.tf_critic_loss = tf.placeholder(tf.float32, shape=None, name='critic_loss_summary')
+        self.tf_critic_summary = tf.summary.scalar("Critic loss", self.tf_critic_loss)
+        # Loss of actor summary for tensorboard
+        self.tf_actor_loss = tf.placeholder(tf.float32, shape=None, name='actor_loss_summary')
+        self.tf_actor_summary = tf.summary.scalar("Actor loss", self.tf_actor_loss)
+        # merge loss
+        self.loss = tf.summary.merge([self.tf_critic_summary, self.tf_actor_summary])
+        # time
+        self.tf_time = tf.placeholder(tf.float32, shape=None, name='Time_per_episode')
+        self.tf_time_summary = tf.summary.scalar("Time per episode", self.tf_time)
+        # writer
+        self.writer = tf.summary.FileWriter('./graphs', self.model.sess.graph)
     
     def tryLoadWeights(self):
         print("Load weights \n")
@@ -153,9 +170,8 @@ class Trainer():
                     state = next_state
 
     def DDPG(self, model_name_prefix):
-        
+        scores = []
         for i_episode in range(self.episode_start, self.num_episodes):
-            scores  = []
             one_episode_score = 0
             #write log of training
             name = "./log/training.txt"
@@ -168,18 +184,18 @@ class Trainer():
                 if (i_episode + 1) % 1000 == 0:
                     prefixe = "./checkpoints/"
                     self.model.Actor.save(prefixe = prefixe + "checkpoint_avgScore_{}".format(avg))
-                    self.model.Critic.save(prefix = prefixe + "checkpoint_avgScore_{}".format(avg))
+                    self.model.Critic.save(prefixe = prefixe + "checkpoint_avgScore_{}".format(avg))
                 print("Episode {}/{} : Average score in 100 latest episodes : {}".format(i_episode+1, self.num_episodes, avg))
                 scores.clear()
             
             #reset env
             state = env.reset(obs_as_dict = False)
-            
+
             #noise decay
-            self.noise = self.noise * self.noise_decay
+            self.noise *= self.noise_decay
 
             #epsilon decay
-            self.epsilon = self.epsilon * self.epsilon_decay
+            self.epsilon *= self.epsilon_decay
 
             noise = np.zeros([1, self.model.env.action_space.shape[0]])
 
@@ -187,6 +203,7 @@ class Trainer():
             
             for i_step in itertools.count():
                 state = [state]
+
                 action_original = self.model.Actor.actor_model.predict(np.asarray(state))
 
                 #action for training with noise
@@ -212,7 +229,14 @@ class Trainer():
                 self.experience_replay()
 
                 if done:
+                    print("Episode {} ->>> Scores : {}".format(i_episode, one_episode_score))
                     scores.append(one_episode_score)
+                    # write reward for tensorboard
+                    summary = self.model.sess.run(self.tf_reward_summary, feed_dict={
+                        self.tf_reward: one_episode_score
+                    })
+                    # add summary to writer
+                    self.writer.add_summary(summary, i_episode)
                     break
                 else:
                     state = next_state
@@ -224,7 +248,7 @@ class Trainer():
         #save information to log
         name = "./log/data.txt"
         with open(name, 'a') as f:
-            f.write(self.num_episodes, model_name_prefix, self.noise, self.epsilon)
+            f.write(" ".join((self.num_episodes, model_name_prefix, self.noise, self.epsilon)))
         f.close()
         print("Log saved successfully! \n")
         #save memory buffer
@@ -249,6 +273,16 @@ class Trainer():
             f.write("History of actor network : {} \n".format(history_actor))
             f.write("History of critic network : {} \n".format(history_critic))
         f.close()
+
+        # write loss for tensorboard
+        summary = self.model.sess.run(self.loss, feed_dict={
+            self.tf_critic_loss: history_critic,
+            self.tf_actor_loss: history_actor
+        })
+
+        # add summary to writer
+        self.writer.add_summary(summary, self.count_exp_replay)
+        self.count_exp_replay += 1
 
         return([history_actor, history_critic])
         
